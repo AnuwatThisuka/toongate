@@ -10,7 +10,7 @@ Helicone tells you what you're spending. toongate actually reduces it.
 -   headers: { "Helicone-Auth": "Bearer sk-hel-..." }
 - });
 + const openai = new OpenAI({
-+   baseURL: "https://your-worker.workers.dev/v1",   // toongate in front
++   baseURL: "https://toongate.workers.dev/v1",   // toongate in front
 +   headers: {
 +     "Helicone-Auth": "Bearer sk-hel-...",           // still works, untouched
 +   }
