@@ -1,5 +1,25 @@
-UPSTREAM_URL=https://oai.helicone.ai/v1
+# Upstream gateway — pick one and uncomment:
+
+# Cloudflare AI Gateway (recommended if hosting on Workers)
+UPSTREAM_URL=https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/openai
+
+# Helicone
+# UPSTREAM_URL=https://oai.helicone.ai/v1
+
+# OpenAI direct
+# UPSTREAM_URL=https://api.openai.com/v1
+
+# Anthropic direct
+# UPSTREAM_URL=https://api.anthropic.com
+
+# LiteLLM (self-hosted)
+# UPSTREAM_URL=https://your-litellm-instance/v1
+
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+
+# Cloudflare AI Gateway — only needed if gateway auth is enabled
+CF_AIG_TOKEN=
+
 TOON_THRESHOLD=0.6
 TOON_LOG_SAVINGS=true

@@ -59,6 +59,17 @@ async function proxy(
   headers.set("Authorization", `Bearer ${env.OPENAI_API_KEY}`);
   headers.delete("content-length");
 
+  // Forward Cloudflare AI Gateway auth if configured
+  if (env.CF_AIG_TOKEN) {
+    headers.set("cf-aig-authorization", env.CF_AIG_TOKEN);
+  }
+  // Forward any cf-aig-* headers from the original request
+  for (const [key, value] of c.req.raw.headers.entries()) {
+    if (key.startsWith("cf-aig-")) {
+      headers.set(key, value);
+    }
+  }
+
   const upstream = env.UPSTREAM_URL + upstreamPath(c.req.path);
   const response = await fetch(
     new Request(upstream, { method: "POST", headers, body: outBodyText }),
@@ -102,6 +113,11 @@ async function forward(
   const headers = new Headers(c.req.raw.headers);
   headers.set("Authorization", `Bearer ${env.OPENAI_API_KEY}`);
   headers.delete("content-length");
+
+  // Forward Cloudflare AI Gateway auth if configured
+  if (env.CF_AIG_TOKEN) {
+    headers.set("cf-aig-authorization", env.CF_AIG_TOKEN);
+  }
 
   const upstream = env.UPSTREAM_URL + upstreamPath(c.req.path);
   const response = await fetch(

@@ -83,7 +83,7 @@ Before any PR that touches the proxy core is merged, the following must pass. Th
 - [ ] Encoder round-trip test passes for 10+ payload shapes (tabular, nested, mixed, empty array, single-item, primitives)
 - [ ] Eligibility score is correct for pure tabular / mixed / plain-text payloads
 - [ ] `encode` fail → fallback sends original payload — request never dropped
-- [ ] All `Helicone-*` headers pass through untouched — verified against live Helicone
+- [ ] All gateway headers pass through untouched — verified against at least one gateway (Cloudflare AI Gateway or Helicone)
 
 ### Reliability
 

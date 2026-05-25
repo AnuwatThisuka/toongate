@@ -5,6 +5,13 @@
   "compatibility_date": "2025-01-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // UPSTREAM_URL is set in .dev.vars (local) or via `wrangler secret put` (production).
+  // Default: Cloudflare AI Gateway
+  //   https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/openai
+  // Change to any OpenAI-compatible upstream:
+  //   https://oai.helicone.ai/v1
+  //   https://api.openai.com/v1
+  //   https://your-litellm-instance/v1
   "d1_databases": [
     {
       "binding": "DB",

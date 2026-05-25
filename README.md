@@ -1,23 +1,27 @@
 # toongate
 
-> Active compression layer for LLM pipelines — sits in front of Helicone (or any gateway) and reduces token costs up to 40% before requests reach your provider.
+> Active compression layer for LLM pipelines — sits in front of any LLM gateway and reduces token costs up to 40% before requests reach your provider.
 
-Helicone tells you what you're spending. toongate actually reduces it.
+Cut LLM token costs up to 40%. Works with any gateway.
 
-```diff
-- const openai = new OpenAI({
--   baseURL: "https://oai.helicone.ai/v1",
--   headers: { "Helicone-Auth": "Bearer sk-hel-..." }
-- });
-+ const openai = new OpenAI({
-+   baseURL: "https://toongate.workers.dev/v1",   // toongate in front
-+   headers: {
-+     "Helicone-Auth": "Bearer sk-hel-...",           // still works, untouched
-+   }
-+ });
+```ts
+const openai = new OpenAI({
+  // Point at toongate instead of your gateway directly
+  baseURL: "https://toongate.workers.dev/v1",
+  headers: {
+    "X-Toon-Key": "sk-toon-...",
+
+    // Cloudflare AI Gateway (recommended)
+    "X-Upstream-URL": "https://gateway.ai.cloudflare.com/v1/{account}/{gateway}/openai",
+
+    // or Helicone
+    // "X-Upstream-URL": "https://oai.helicone.ai/v1",
+    // "Helicone-Auth": "Bearer sk-hel-...",
+  },
+});
 ```
 
-Every Helicone feature you rely on — logging, sessions, cost tracking, caching — keeps working exactly as before. You just spend less on the underlying tokens.
+Every gateway feature you rely on — logging, caching, smart routing — keeps working exactly as before. You just spend less on the underlying tokens.
 
 ---
 
@@ -28,9 +32,9 @@ Your App
    │  OpenAI SDK (unchanged)
    ▼
 toongate                  ← compresses JSON arrays in prompt to TOON (~40% fewer tokens)
-   │  forwards all Helicone-* headers untouched
+   │  forwards all gateway headers untouched
    ▼
-Helicone                  ← logs the already-compressed request; sees lower token counts
+Any Gateway               ← CF AI Gateway / Helicone / LiteLLM / direct — your choice
    │
    ▼
 OpenAI / Anthropic        ← receives smaller payload; bills you less
@@ -50,16 +54,14 @@ toongate encodes only when it helps — uniform arrays of objects (RAG chunks, D
 
 toongate uses the [TOON format](https://toonformat.dev) to encode structured data in prompt payloads. The sweet spot is uniform arrays of objects — where JSON repeats field names for every row:
 
+| Payload type | Compression | Example |
+| --- | --- | --- |
+| Uniform array of objects | **~40% fewer tokens** | RAG chunks, DB rows, product catalogs, event logs |
+| Mixed structured data | ~20–30% | Prompts with both tables and nested objects |
+| Free-form text | 0% (pass-through) | Plain Q&A, summaries, creative prompts |
+| Deeply nested non-uniform JSON | 0% (pass-through) | Complex config objects |
 
-| Payload type                   | Compression           | Example                                           |
-| ------------------------------ | --------------------- | ------------------------------------------------- |
-| Uniform array of objects       | **~40% fewer tokens** | RAG chunks, DB rows, product catalogs, event logs |
-| Mixed structured data          | ~20–30%               | Prompts with both tables and nested objects       |
-| Free-form text                 | 0% (pass-through)     | Plain Q&A, summaries, creative prompts            |
-| Deeply nested non-uniform JSON | 0% (pass-through)     | Complex config objects                            |
-
-
-Accuracy is slightly *higher* with TOON — explicit `[N]` length markers and `{fields}` headers give models a clearer schema to follow (76.4% vs 75.0% on [official benchmarks](https://toonformat.dev/guide/benchmarks.html)).
+Accuracy is slightly _higher_ with TOON — explicit `[N]` length markers and `{fields}` headers give models a clearer schema to follow (76.4% vs 75.0% on [official benchmarks](https://toonformat.dev/guide/benchmarks.html)).
 
 ---
 
@@ -90,7 +92,6 @@ npx wrangler d1 create toongate-savings
 Paste the returned ID into `wrangler.jsonc`:
 
 ```jsonc
-// wrangler.jsonc
 "d1_databases": [
   {
     "binding": "DB",
@@ -121,7 +122,7 @@ npm run db:migrate:remote
 npm run deploy
 ```
 
-Point your SDK at the deployed worker URL instead of the upstream directly.
+Point your SDK at the deployed worker URL instead of your gateway directly.
 
 ---
 
@@ -129,17 +130,16 @@ Point your SDK at the deployed worker URL instead of the upstream directly.
 
 All configuration is via environment variables. In production, set secrets with `wrangler secret put <NAME>`.
 
+| Variable | Example | Description |
+| --- | --- | --- |
+| `UPSTREAM_URL` | `https://gateway.ai.cloudflare.com/v1/{account}/{gateway}/openai` | Upstream base URL. See `.dev.vars.example` for all gateway options. |
+| `OPENAI_API_KEY` | `sk-...` | Injected as `Authorization: Bearer` on OpenAI routes. |
+| `ANTHROPIC_API_KEY` | `sk-ant-...` | Injected as `x-api-key` on Anthropic routes. |
+| `CF_AIG_TOKEN` | `Bearer cf_...` | Cloudflare AI Gateway auth token. Leave empty if gateway auth is disabled. |
+| `TOON_THRESHOLD` | `0.6` | Min tabular eligibility score (0–1) before encoding. Lower = more aggressive. |
+| `TOON_LOG_SAVINGS` | `true` | Write per-request savings rows to D1. |
 
-| Variable            | Example                      | Description                                                                               |
-| ------------------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `UPSTREAM_URL`      | `https://oai.helicone.ai/v1` | Upstream base URL — must end in `/v1`. Used for all forwarded requests.                   |
-| `OPENAI_API_KEY`    | `sk-...`                     | Injected as `Authorization: Bearer` on OpenAI routes.                                     |
-| `ANTHROPIC_API_KEY` | `sk-ant-...`                 | Injected as `x-api-key` on Anthropic routes.                                              |
-| `TOON_THRESHOLD`    | `0.6`                        | Min tabular eligibility score (0–1) before encoding. Lower = more aggressive compression. |
-| `TOON_LOG_SAVINGS`  | `true`                       | Write per-request savings rows to D1.                                                     |
-
-
-**Note on `UPSTREAM_URL`:** toongate strips the `/v1` prefix from incoming paths before appending to `UPSTREAM_URL`. So `UPSTREAM_URL=https://oai.helicone.ai/v1` routes `/v1/chat/completions` to `https://oai.helicone.ai/v1/chat/completions`. For Anthropic, set `UPSTREAM_URL=https://anthropic.helicone.ai/v1` or `https://api.anthropic.com`.
+**Note on `UPSTREAM_URL`:** toongate strips the `/v1` prefix from incoming paths before appending to `UPSTREAM_URL`, so `UPSTREAM_URL` should end in `/v1` (or the equivalent base for your gateway). For Anthropic direct, set `UPSTREAM_URL=https://api.anthropic.com`.
 
 ---
 
@@ -179,16 +179,15 @@ savings (
 
 toongate is a transparent proxy — it speaks the same OpenAI-compatible protocol as its upstream. Works with anything that supports a custom `baseURL`.
 
-
-| Upstream                                     | Status    |
-| -------------------------------------------- | --------- |
-| Helicone (`oai.helicone.ai`)                 | Supported |
-| OpenAI direct                                | Supported |
-| Anthropic direct                             | Supported |
-| Helicone Anthropic (`anthropic.helicone.ai`) | Supported |
-| Azure OpenAI                                 | Planned   |
-| Google Gemini                                | Planned   |
-
+| Gateway | Status |
+| --- | --- |
+| Cloudflare AI Gateway | Supported |
+| OpenAI direct | Supported |
+| Anthropic direct | Supported |
+| Helicone | Supported |
+| LiteLLM | Supported |
+| Azure OpenAI | Planned |
+| Google Gemini | Planned |
 
 ---
 
@@ -236,7 +235,7 @@ Areas where help is most useful:
 
 - Azure OpenAI and Gemini upstream support
 - Streaming response TOON decoding (chunked SSE)
-- Helicone webhook integration (push savings delta into Helicone custom properties)
+- Gateway webhook integration (push savings delta into gateway custom properties)
 - Performance benchmarks at high request volume
 
 ---

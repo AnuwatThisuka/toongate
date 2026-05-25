@@ -7,4 +7,5 @@ interface Env {
   TOON_THRESHOLD: string;
   TOON_LOG_SAVINGS: string;
   DB: D1Database;
+  CF_AIG_TOKEN: string;
 }
