@@ -65,9 +65,13 @@ async function proxy(
   setAuthHeaders(headers, env);
   headers.delete("content-length");
 
-  // Forward Cloudflare AI Gateway auth if configured
+  // Forward Cloudflare AI Gateway auth if configured.
+  // Normalise: accept bare token ("vck_...") or pre-formatted ("Bearer vck_...").
   if (env.CF_AIG_TOKEN) {
-    headers.set("cf-aig-authorization", env.CF_AIG_TOKEN);
+    const aigToken = env.CF_AIG_TOKEN.startsWith("Bearer ")
+      ? env.CF_AIG_TOKEN
+      : `Bearer ${env.CF_AIG_TOKEN}`;
+    headers.set("cf-aig-authorization", aigToken);
   }
   // Forward any cf-aig-* headers from the original request
   for (const [key, value] of c.req.raw.headers.entries()) {
