@@ -726,7 +726,7 @@
 
   <!-- HERO -->
   <div class="hero">
-    <div class="hero-eyebrow"><b>v0.1.0</b> • Open Source • Apache 2.0</div>
+    <div class="hero-eyebrow"><b>v0.1.0</b> • Open Source • MIT</div>
     <h1>
       <span class="dim">// Compress before</span><br>
       <span class="dim">// you pay for tokens</span><br>
@@ -776,15 +776,9 @@
         <span class="dn">const openai = new OpenAI({</span>
         <span class="d-">&nbsp;&nbsp;baseURL: "https://gateway.ai.cloudflare.com/v1/{account}/{gw}/openai",</span>
         <span class="dplus">&nbsp;&nbsp;baseURL: "<span class="hi">https://toongate.workers.dev/v1</span>",</span>
-        <span class="dplus">&nbsp;&nbsp;headers: {</span>
-        <span class="dplus">&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">// Cloudflare AI Gateway
-            (recommended)</span></span>
-        <span class="dplus">&nbsp;&nbsp;&nbsp;&nbsp;"<span class="hi">X-Upstream-URL</span>":
-          "https://gateway.ai.cloudflare.com/v1/{account}/{gw}/openai",</span>
-        <span class="dplus">&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">// "X-Upstream-URL": "https://oai.helicone.ai/v1",
-            &lt;-- or Helicone</span></span>
-        <span class="dplus">&nbsp;&nbsp;&nbsp;&nbsp;"<span class="hi">X-Toon-Key</span>": "sk-toon-...",</span>
-        <span class="dplus">&nbsp;&nbsp;},</span>
+        <span class="dn">&nbsp;&nbsp;<span class="cmt">// All existing gateway headers pass through untouched:</span></span>
+        <span class="dn">&nbsp;&nbsp;<span class="cmt">// "Helicone-Auth": "Bearer sk-hel-...",</span></span>
+        <span class="dn">&nbsp;&nbsp;<span class="cmt">// "cf-aig-authorization": "Bearer ...",</span></span>
         <span class="dn">});</span>
       </div>
     </div>
@@ -835,11 +829,10 @@
         </div>
 
         <div class="flow-node is-toon">
-          <div class="flow-icon">dec</div>
+          <div class="flow-icon">log</div>
           <div class="flow-content">
-            <div class="flow-name">toongate · Decode & Log</div>
-            <div class="flow-desc">Decodes TOON back to standard JSON. Writes savings data to Cloudflare D1
-              asynchronously (zero added latency).</div>
+            <div class="flow-name">toongate · Pass-through & Log</div>
+            <div class="flow-desc">Forwards response as-is. Writes tokens_before / tokens_after / usd_saved to Cloudflare D1 asynchronously via ctx.waitUntil — zero added latency.</div>
           </div>
           <div class="flow-tag tag-dim">D1 · Async</div>
         </div>
@@ -887,17 +880,12 @@
             <tr>
               <td class="feat-name">Active Compression</td>
               <td class="val-no">No</td>
-              <td class="val-yes">Yes, active</td>
+              <td class="val-yes">Yes — TOON encoding</td>
             </tr>
             <tr>
-              <td class="feat-name">Payload Inspector</td>
+              <td class="feat-name">Savings Log (D1)</td>
               <td class="val-no">No</td>
-              <td class="val-yes">Yes</td>
-            </tr>
-            <tr>
-              <td class="feat-name">Savings Dashboard</td>
-              <td class="val-no">No</td>
-              <td class="val-yes">Yes</td>
+              <td class="val-yes">Yes — tokens &amp; USD saved per request</td>
             </tr>
           </tbody>
         </table>
@@ -943,7 +931,7 @@
   </div>
 
   <footer>
-    <span>toongate • Apache-2.0 License</span>
+    <span>toongate • MIT License</span>
     <span>
       Built on top of <a href="https://toonformat.dev" target="_blank">toonformat.dev</a> • Not affiliated with Helicone or
       Cloudflare.
