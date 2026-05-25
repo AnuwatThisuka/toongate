@@ -7,13 +7,13 @@ interface WaitContext {
 export function writeSavings(
   db: D1Database,
   row: SavingsRow,
-  ctx?: WaitContext
+  ctx?: WaitContext,
 ): void {
   const promise = db
     .prepare(
       `INSERT INTO savings
          (ts, model, endpoint, tokens_before, tokens_after, tokens_saved, usd_saved, elapsed_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       row.ts,
@@ -23,7 +23,7 @@ export function writeSavings(
       row.tokens_after,
       row.tokens_saved,
       row.usd_saved,
-      row.elapsed_ms
+      row.elapsed_ms,
     )
     .run();
 

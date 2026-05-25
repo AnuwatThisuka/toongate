@@ -1,5 +1,4 @@
 import { Hono, type Context } from "hono";
-import type { Env } from "../types";
 import { scoreEligibility } from "../lib/eligibility";
 import { encodeToToon, estimateTokens } from "../lib/encoder";
 import { calcUsdSaved } from "../lib/pricing";
@@ -14,7 +13,7 @@ function upstreamPath(path: string): string {
 
 async function proxy(
   c: Context<{ Bindings: Env }>,
-  endpoint: string
+  endpoint: string,
 ): Promise<Response> {
   const env = c.env;
   const start = Date.now();
@@ -62,7 +61,7 @@ async function proxy(
 
   const upstream = env.UPSTREAM_URL + upstreamPath(c.req.path);
   const response = await fetch(
-    new Request(upstream, { method: "POST", headers, body: outBodyText })
+    new Request(upstream, { method: "POST", headers, body: outBodyText }),
   );
 
   const elapsed = Date.now() - start;
@@ -81,7 +80,7 @@ async function proxy(
         usd_saved: calcUsdSaved(model, tokensSaved),
         elapsed_ms: elapsed,
       },
-      c.executionCtx
+      c.executionCtx,
     );
   }
 
@@ -97,7 +96,7 @@ async function proxy(
 async function forward(
   c: Context<{ Bindings: Env }>,
   body: string,
-  endpoint: string
+  endpoint: string,
 ): Promise<Response> {
   const env = c.env;
   const headers = new Headers(c.req.raw.headers);
@@ -106,7 +105,7 @@ async function forward(
 
   const upstream = env.UPSTREAM_URL + upstreamPath(c.req.path);
   const response = await fetch(
-    new Request(upstream, { method: "POST", headers, body })
+    new Request(upstream, { method: "POST", headers, body }),
   );
 
   writeSavings(env.DB, {
@@ -126,9 +125,7 @@ async function forward(
   });
 }
 
-openai.post("/v1/chat/completions", (c) =>
-  proxy(c, "/v1/chat/completions")
-);
+openai.post("/v1/chat/completions", (c) => proxy(c, "/v1/chat/completions"));
 openai.post("/v1/embeddings", (c) => proxy(c, "/v1/embeddings"));
 
 export default openai;
