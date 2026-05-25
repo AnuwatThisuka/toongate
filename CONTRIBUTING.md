@@ -18,12 +18,14 @@ Thanks for taking the time to contribute. toongate is an open-source project and
 git clone https://github.com/anuwatthisuka/toongate
 cd toongate
 npm install
-cp .env.example .env
-npm run dev       # starts proxy on http://localhost:3000 with hot reload
-npm test          # run test suite
+cp .dev.vars.example .dev.vars   # add your API keys
+npm run types                     # generate Env interface from wrangler.jsonc
+npm run db:migrate:local          # setup local D1
+npm run dev                       # starts proxy on http://localhost:8787
+npm test                          # run test suite
 ```
 
-Required: Node.js 18+
+Required: Node.js 18+, Wrangler CLI (`npm i -g wrangler`)
 
 ---
 
@@ -72,6 +74,38 @@ Required: Node.js 18+
 
 ---
 
+## Proxy core quality checklist
+
+Before any PR that touches the proxy core is merged, the following must pass. This defines what "core ready" means for toongate.
+
+### Correctness
+
+- [ ] Encoder round-trip test passes for 10+ payload shapes (tabular, nested, mixed, empty array, single-item, primitives)
+- [ ] Eligibility score is correct for pure tabular / mixed / plain-text payloads
+- [ ] `encode` fail → fallback sends original payload — request never dropped
+- [ ] All `Helicone-*` headers pass through untouched — verified against live Helicone
+
+### Reliability
+
+- [ ] `stream: true` passes through without buffering the full body
+- [ ] Upstream 4xx/5xx returns the correct error to the client — no hang
+- [ ] D1 write failure does not affect the response returned to the client
+- [ ] Worker stays within 128MB memory limit under sustained load
+
+### Performance
+
+- [ ] Encoding overhead < 1ms for payloads up to 50KB
+- [ ] p95 latency increase vs direct call < 2ms (measured with wrk or similar)
+- [ ] D1 savings write uses `ctx.waitUntil` — does not block response
+
+### Observability
+
+- [ ] Every request logs: `model`, `endpoint`, `tokens_before`, `tokens_after`, `tokens_saved`, `usd_saved`, `elapsed_ms`
+- [ ] Encode/upstream/D1 errors are logged with distinct categories
+- [ ] `GET /health` returns `{ ok: true, version: "x.x.x" }` with status 200
+
+---
+
 ## What we're looking for
 
 High-priority contributions:
@@ -107,6 +141,7 @@ This keeps the changelog automatable and the git history readable.
 - TypeScript strict mode — no `any` without a comment explaining why.
 - Functions over classes where possible.
 - Each file does one thing. If a file is getting long, split it.
+- All D1 queries use prepared statements with `.bind()` — never string interpolation.
 - Errors should be descriptive — the proxy sits in a critical path, so clear error messages matter.
 
 ---
