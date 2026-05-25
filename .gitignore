@@ -1,1 +1,9 @@
+node_modules
+dist
+.wrangler
+.dev.vars
+*.tsbuildinfo
 prompt.txt
+.env
+.claude
+.vscode

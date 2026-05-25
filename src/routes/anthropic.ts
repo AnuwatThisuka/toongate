@@ -1,0 +1,137 @@
+import { Hono, type Context } from "hono";
+import type { Env } from "../types";
+import { scoreEligibility } from "../lib/eligibility";
+import { encodeToToon, estimateTokens } from "../lib/encoder";
+import { calcUsdSaved } from "../lib/pricing";
+import { writeSavings } from "../lib/savings";
+
+const anthropic = new Hono<{ Bindings: Env }>();
+
+// Anthropic's API is at /v1/messages; UPSTREAM_URL already ends in /v1.
+function upstreamPath(path: string): string {
+  return path.replace(/^\/v1/, "");
+}
+
+function setAuthHeaders(headers: Headers, env: Env): void {
+  headers.delete("authorization");
+  headers.delete("x-api-key");
+  headers.set("x-api-key", env.ANTHROPIC_API_KEY);
+}
+
+async function proxy(
+  c: Context<{ Bindings: Env }>,
+  endpoint: string
+): Promise<Response> {
+  const env = c.env;
+  const start = Date.now();
+
+  const bodyText = await c.req.text();
+
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(bodyText) as Record<string, unknown>;
+  } catch {
+    return forward(c, bodyText, endpoint);
+  }
+
+  const isStreaming = body.stream === true;
+  const model = typeof body.model === "string" ? body.model : "unknown";
+  const tokensBefore = estimateTokens(bodyText);
+  let outBodyText = bodyText;
+  let tokensAfter = tokensBefore;
+
+  if (!isStreaming) {
+    const messages = body.messages;
+    if (Array.isArray(messages)) {
+      const threshold = parseFloat(env.TOON_THRESHOLD);
+      let modified = false;
+
+      const processedMessages = messages.map((msg: unknown) => {
+        const m = msg as Record<string, unknown>;
+        if (scoreEligibility(m.content) >= threshold) {
+          modified = true;
+          return { ...m, content: encodeToToon(m.content) };
+        }
+        return m;
+      });
+
+      if (modified) {
+        outBodyText = JSON.stringify({ ...body, messages: processedMessages });
+        tokensAfter = estimateTokens(outBodyText);
+      }
+    }
+  }
+
+  const headers = new Headers(c.req.raw.headers);
+  setAuthHeaders(headers, env);
+  headers.delete("content-length");
+
+  const upstream = env.UPSTREAM_URL + upstreamPath(c.req.path);
+  const response = await fetch(
+    new Request(upstream, { method: "POST", headers, body: outBodyText })
+  );
+
+  const elapsed = Date.now() - start;
+  const tokensSaved = Math.max(0, tokensBefore - tokensAfter);
+
+  if (env.TOON_LOG_SAVINGS === "true") {
+    writeSavings(
+      env.DB,
+      {
+        ts: new Date().toISOString(),
+        model,
+        endpoint,
+        tokens_before: tokensBefore,
+        tokens_after: tokensAfter,
+        tokens_saved: tokensSaved,
+        usd_saved: calcUsdSaved(model, tokensSaved),
+        elapsed_ms: elapsed,
+      },
+      c.executionCtx
+    );
+  }
+
+  const respHeaders = new Headers(response.headers);
+  respHeaders.delete("content-encoding");
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: respHeaders,
+  });
+}
+
+async function forward(
+  c: Context<{ Bindings: Env }>,
+  body: string,
+  endpoint: string
+): Promise<Response> {
+  const env = c.env;
+  const headers = new Headers(c.req.raw.headers);
+  setAuthHeaders(headers, env);
+  headers.delete("content-length");
+
+  const upstream = env.UPSTREAM_URL + upstreamPath(c.req.path);
+  const response = await fetch(
+    new Request(upstream, { method: "POST", headers, body })
+  );
+
+  writeSavings(env.DB, {
+    ts: new Date().toISOString(),
+    model: "unknown",
+    endpoint,
+    tokens_before: 0,
+    tokens_after: 0,
+    tokens_saved: 0,
+    usd_saved: 0,
+    elapsed_ms: 0,
+  });
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: new Headers(response.headers),
+  });
+}
+
+anthropic.post("/v1/messages", (c) => proxy(c, "/v1/messages"));
+
+export default anthropic;
