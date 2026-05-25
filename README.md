@@ -50,6 +50,7 @@ toongate encodes only when it helps — uniform arrays of objects (RAG chunks, D
 
 toongate uses the [TOON format](https://toonformat.dev) to encode structured data in prompt payloads. The sweet spot is uniform arrays of objects — where JSON repeats field names for every row:
 
+
 | Payload type                   | Compression           | Example                                           |
 | ------------------------------ | --------------------- | ------------------------------------------------- |
 | Uniform array of objects       | **~40% fewer tokens** | RAG chunks, DB rows, product catalogs, event logs |
@@ -57,7 +58,8 @@ toongate uses the [TOON format](https://toonformat.dev) to encode structured dat
 | Free-form text                 | 0% (pass-through)     | Plain Q&A, summaries, creative prompts            |
 | Deeply nested non-uniform JSON | 0% (pass-through)     | Complex config objects                            |
 
-Accuracy is slightly _higher_ with TOON — explicit `[N]` length markers and `{fields}` headers give models a clearer schema to follow (76.4% vs 75.0% on [official benchmarks](https://toonformat.dev/guide/benchmarks.html)).
+
+Accuracy is slightly *higher* with TOON — explicit `[N]` length markers and `{fields}` headers give models a clearer schema to follow (76.4% vs 75.0% on [official benchmarks](https://toonformat.dev/guide/benchmarks.html)).
 
 ---
 
@@ -127,6 +129,7 @@ Point your SDK at the deployed worker URL instead of the upstream directly.
 
 All configuration is via environment variables. In production, set secrets with `wrangler secret put <NAME>`.
 
+
 | Variable            | Example                      | Description                                                                               |
 | ------------------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
 | `UPSTREAM_URL`      | `https://oai.helicone.ai/v1` | Upstream base URL — must end in `/v1`. Used for all forwarded requests.                   |
@@ -134,6 +137,7 @@ All configuration is via environment variables. In production, set secrets with 
 | `ANTHROPIC_API_KEY` | `sk-ant-...`                 | Injected as `x-api-key` on Anthropic routes.                                              |
 | `TOON_THRESHOLD`    | `0.6`                        | Min tabular eligibility score (0–1) before encoding. Lower = more aggressive compression. |
 | `TOON_LOG_SAVINGS`  | `true`                       | Write per-request savings rows to D1.                                                     |
+
 
 **Note on `UPSTREAM_URL`:** toongate strips the `/v1` prefix from incoming paths before appending to `UPSTREAM_URL`. So `UPSTREAM_URL=https://oai.helicone.ai/v1` routes `/v1/chat/completions` to `https://oai.helicone.ai/v1/chat/completions`. For Anthropic, set `UPSTREAM_URL=https://anthropic.helicone.ai/v1` or `https://api.anthropic.com`.
 
@@ -175,6 +179,7 @@ savings (
 
 toongate is a transparent proxy — it speaks the same OpenAI-compatible protocol as its upstream. Works with anything that supports a custom `baseURL`.
 
+
 | Upstream                                     | Status    |
 | -------------------------------------------- | --------- |
 | Helicone (`oai.helicone.ai`)                 | Supported |
@@ -183,6 +188,7 @@ toongate is a transparent proxy — it speaks the same OpenAI-compatible protoco
 | Helicone Anthropic (`anthropic.helicone.ai`) | Supported |
 | Azure OpenAI                                 | Planned   |
 | Google Gemini                                | Planned   |
+
 
 ---
 

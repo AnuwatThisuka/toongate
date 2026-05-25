@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import type { Env } from "./types";
 import openaiRoutes from "./routes/openai";
 import anthropicRoutes from "./routes/anthropic";
 
