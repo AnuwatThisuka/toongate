@@ -66,7 +66,7 @@ async function proxy(
   headers.delete("content-length");
 
   // Forward Cloudflare AI Gateway auth if configured.
-  // Normalise: accept bare token ("vck_...") or pre-formatted ("Bearer vck_...").
+  // Normalize: accept bare token ("vck_...") or pre-formatted ("Bearer vck_...").
   if (env.CF_AIG_TOKEN) {
     const aigToken = env.CF_AIG_TOKEN.startsWith("Bearer ")
       ? env.CF_AIG_TOKEN
