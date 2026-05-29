@@ -1,6 +1,8 @@
 import { Hono, type Context } from "hono";
 import { scoreEligibility } from "../lib/eligibility";
 import { encodeToToon, estimateTokens } from "../lib/encoder";
+import { decodeFromToon } from "../lib/decoder";
+import { createSseDecodeStream } from "../lib/sse";
 import { calcUsdSaved } from "../lib/pricing";
 import { writeSavings } from "../lib/savings";
 
@@ -33,25 +35,24 @@ async function proxy(
   let outBodyText = bodyText;
   let tokensAfter = tokensBefore;
 
-  if (!isStreaming) {
-    const messages = body.messages;
-    if (Array.isArray(messages)) {
-      const threshold = parseFloat(env.TOON_THRESHOLD);
-      let modified = false;
+  // Encode request regardless of streaming — TOON compression is input-side only.
+  const messages = body.messages;
+  if (Array.isArray(messages)) {
+    const threshold = parseFloat(env.TOON_THRESHOLD);
+    let modified = false;
 
-      const processedMessages = messages.map((msg: unknown) => {
-        const m = msg as Record<string, unknown>;
-        if (scoreEligibility(m.content) >= threshold) {
-          modified = true;
-          return { ...m, content: encodeToToon(m.content) };
-        }
-        return m;
-      });
-
-      if (modified) {
-        outBodyText = JSON.stringify({ ...body, messages: processedMessages });
-        tokensAfter = estimateTokens(outBodyText);
+    const processedMessages = messages.map((msg: unknown) => {
+      const m = msg as Record<string, unknown>;
+      if (scoreEligibility(m.content) >= threshold) {
+        modified = true;
+        return { ...m, content: encodeToToon(m.content) };
       }
+      return m;
+    });
+
+    if (modified) {
+      outBodyText = JSON.stringify({ ...body, messages: processedMessages });
+      tokensAfter = estimateTokens(outBodyText);
     }
   }
 
@@ -102,10 +103,32 @@ async function proxy(
   const respHeaders = new Headers(response.headers);
   respHeaders.delete("content-encoding");
 
-  return new Response(response.body, {
-    status: response.status,
-    headers: respHeaders,
-  });
+  if (isStreaming && response.body) {
+    return new Response(response.body.pipeThrough(createSseDecodeStream()), {
+      status: response.status,
+      headers: respHeaders,
+    });
+  }
+
+  // Non-streaming: decode any TOON in the response body before returning.
+  const respText = await response.text();
+  try {
+    const respJson = JSON.parse(respText);
+    const content =
+      respJson?.choices?.[0]?.message?.content;
+    if (typeof content === "string") {
+      respJson.choices[0].message.content = decodeFromToon(content);
+    }
+    return new Response(JSON.stringify(respJson), {
+      status: response.status,
+      headers: respHeaders,
+    });
+  } catch {
+    return new Response(respText, {
+      status: response.status,
+      headers: respHeaders,
+    });
+  }
 }
 
 async function forward(
