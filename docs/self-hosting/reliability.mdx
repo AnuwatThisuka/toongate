@@ -1,0 +1,88 @@
+---
+title: Reliability
+description: How toongate handles upstream failures, timeouts, and compression errors.
+---
+
+## Design principle
+
+toongate is designed to **never add new failure modes** to your LLM pipeline. Any error in the compression or logging layer is swallowed and the request proceeds normally. The only thing that can cause a failure is the upstream LLM provider itself.
+
+---
+
+## Fallback table
+
+| Situation | Behavior |
+|---|---|
+| Eligibility score below threshold | Payload passes through unchanged |
+| TOON encode error | Original payload sent; error logged internally |
+| TOON decode error in response | Response passed through unchanged |
+| Upstream timeout (`UPSTREAM_TIMEOUT_MS`) | Returns `504 Gateway Timeout` to client |
+| D1 write fails | Swallowed silently — response is never blocked |
+| `TOON_DRY_RUN=true` | Compression skipped; original payload sent |
+| `TOON_LOG_SAVINGS=false` | D1 write skipped entirely |
+
+---
+
+## Upstream timeout
+
+Requests to the upstream LLM provider are aborted after `UPSTREAM_TIMEOUT_MS` milliseconds (default: `30000` ms / 30 seconds).
+
+```bash
+UPSTREAM_TIMEOUT_MS=60000   # 60s for long-running requests
+```
+
+When a timeout occurs, toongate returns:
+
+```json
+{ "error": "upstream timeout" }
+```
+
+with HTTP status `504`.
+
+Increase this value if you're making requests to large models with long outputs. For streaming requests, the timeout applies to the time until the first chunk is received — not the full stream duration.
+
+---
+
+## D1 write reliability
+
+Savings log writes to D1 are fire-and-forget — they happen after the response has been sent to your app. A D1 failure never blocks or delays the response.
+
+If D1 is unavailable or a write fails:
+- The response to your app is unaffected
+- No error is surfaced to the client
+- The savings data for that request is lost
+
+For most use cases this is acceptable — savings data is telemetry, not business-critical data. If you need guaranteed delivery, poll `/savings/history` and mirror rows to a durable store.
+
+---
+
+## Cloudflare Workers reliability
+
+toongate runs on Cloudflare's global edge network. Workers have a [99.99% SLA](https://www.cloudflare.com/legal/service-level-agreement/) for the Workers platform itself.
+
+Key characteristics:
+- Requests are handled at the edge PoP closest to your user
+- No cold starts — Workers are always warm
+- CPU time limit: 10ms per request on the free plan (toongate uses ~0.3–0.5ms)
+- Concurrent request limit scales automatically
+
+---
+
+## Monitoring
+
+Check the health endpoint to verify the worker is running:
+
+```bash
+curl https://toongate.workers.dev/health
+# { "ok": true, "version": "0.1.0" }
+```
+
+For ongoing monitoring, set up a synthetic uptime check (e.g. via Cloudflare Health Checks, Better Uptime, or Pingdom) against the `/health` endpoint.
+
+---
+
+## Rate limits and quotas
+
+toongate does not impose its own rate limits — it proxies requests as fast as your upstream accepts them. Rate limit responses from the upstream (`429 Too Many Requests`) are returned to your client unchanged.
+
+If you need rate limiting at the toongate layer (e.g. to protect a shared deployment), use [Cloudflare Rate Limiting](https://developers.cloudflare.com/waf/rate-limiting-rules/) on your Worker route.

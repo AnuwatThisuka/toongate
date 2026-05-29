@@ -1,0 +1,117 @@
+---
+title: Migrations
+description: Managing D1 database migrations for toongate.
+---
+
+## Overview
+
+toongate uses Cloudflare D1 for the savings log. Database migrations are managed with Wrangler's built-in D1 migrations support. Migration files live in the `migrations/` directory.
+
+---
+
+## Initial setup
+
+Run migrations locally before starting development:
+
+```bash
+npm run db:migrate:local
+```
+
+Run migrations against your remote D1 database before deploying to production:
+
+```bash
+npm run db:migrate:remote
+```
+
+These scripts call `wrangler d1 migrations apply` under the hood.
+
+---
+
+## Migration files
+
+Migration files are numbered SQL files in `migrations/`:
+
+```
+migrations/
+  0001_create_savings.sql
+```
+
+The initial migration creates the `savings` table:
+
+```sql
+CREATE TABLE IF NOT EXISTS savings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT,
+  model TEXT,
+  endpoint TEXT,
+  tokens_before INTEGER,
+  tokens_after INTEGER,
+  tokens_saved INTEGER,
+  usd_saved REAL,
+  elapsed_ms INTEGER
+);
+```
+
+---
+
+## Adding a new migration
+
+Create a new numbered SQL file in `migrations/`:
+
+```bash
+# migrations/0002_add_index.sql
+CREATE INDEX IF NOT EXISTS idx_savings_ts ON savings(ts);
+CREATE INDEX IF NOT EXISTS idx_savings_model ON savings(model);
+```
+
+Then apply it:
+
+```bash
+# Locally
+npx wrangler d1 migrations apply toongate-savings --local
+
+# Remotely (production)
+npx wrangler d1 migrations apply toongate-savings --remote
+```
+
+Wrangler tracks which migrations have been applied and only runs new ones.
+
+---
+
+## Checking migration status
+
+```bash
+npx wrangler d1 migrations list toongate-savings --remote
+```
+
+Output shows each migration file and whether it has been applied.
+
+---
+
+## Resetting the local database
+
+During development you may want to wipe and recreate the local D1 database:
+
+```bash
+# Delete the local D1 file
+rm -rf .wrangler/state/v3/d1/
+
+# Re-run migrations from scratch
+npm run db:migrate:local
+```
+
+This only affects your local development environment — it does not touch the remote database.
+
+---
+
+## Backup
+
+D1 does not currently support automated backup exports out of the box. To snapshot your savings data:
+
+```bash
+npx wrangler d1 execute toongate-savings --remote \
+  --command "SELECT * FROM savings ORDER BY id" \
+  --json > savings-backup.json
+```
+
+For production systems with high write volume, consider exporting periodically via a scheduled Cloudflare Worker that calls the savings API and writes to R2 or an external store.

@@ -1,0 +1,72 @@
+---
+title: Google Gemini
+description: Use toongate in front of Google Gemini via the OpenAI-compatible endpoint.
+---
+
+## Setup
+
+Google provides an OpenAI-compatible endpoint for Gemini models. Point `UPSTREAM_URL` at it:
+
+```bash
+UPSTREAM_URL=https://generativelanguage.googleapis.com/v1beta/openai
+OPENAI_API_KEY=<your-gemini-api-key>
+```
+
+```typescript
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "https://toongate.workers.dev/v1",
+});
+
+const response = await openai.chat.completions.create({
+  model: "gemini-2.0-flash",
+  messages: [{ role: "user", content: "Hello" }],
+});
+```
+
+toongate compresses the payload and forwards to the Gemini endpoint. Your Gemini API key is injected as `Authorization: Bearer`.
+
+---
+
+## Supported routes
+
+| toongate route | Description |
+|---|---|
+| `POST /v1/chat/completions` | Gemini chat (via OpenAI-compatible endpoint) |
+| `POST /v1/embeddings` | Gemini embeddings |
+
+---
+
+## Model names
+
+Use the Gemini model names directly — they pass through to the upstream unchanged:
+
+```typescript
+// Gemini 2.0 Flash
+{ model: "gemini-2.0-flash" }
+
+// Gemini 1.5 Pro
+{ model: "gemini-1.5-pro" }
+```
+
+---
+
+## Compression notes
+
+Gemini models understand TOON format the same way GPT and Claude models do. Eligibility scoring and compression behavior is identical to other providers.
+
+For embeddings with large batches of uniform input objects, toongate can meaningfully reduce the token count sent to the Gemini embedding endpoint.
+
+---
+
+## Vertex AI
+
+If you're using Gemini via Vertex AI rather than the generative language API, set `UPSTREAM_URL` to your Vertex AI endpoint:
+
+```bash
+UPSTREAM_URL=https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/endpoints/openapi
+OPENAI_API_KEY=<vertex-access-token>
+```
+
+Authentication for Vertex AI typically requires a short-lived access token — manage token refresh outside of toongate and update `OPENAI_API_KEY` (or pass as a header from your SDK).

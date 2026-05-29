@@ -1,0 +1,91 @@
+---
+title: Debug headers
+description: Per-request headers that show exactly what toongate did — and what it saved.
+---
+
+## Response headers
+
+Every response from toongate includes these headers, regardless of whether compression happened:
+
+| Header | Example | Description |
+|---|---|---|
+| `X-Toongate-Compressed` | `true` | Whether the request payload was compressed |
+| `X-Toongate-Tokens-Before` | `1420` | Estimated token count before compression |
+| `X-Toongate-Tokens-After` | `851` | Estimated token count after compression |
+| `X-Toongate-Tokens-Saved` | `569` | Tokens saved (`before - after`) |
+| `X-Toongate-Eligibility-Score` | `0.84` | Eligibility score (0–1) from the scorer |
+
+When `X-Toongate-Compressed: false`, tokens-before equals tokens-after and tokens-saved is `0`.
+
+---
+
+## Reading headers in your SDK
+
+<CodeGroup>
+```typescript TypeScript
+const response = await openai.chat.completions.create({ ... });
+
+// With raw fetch
+const res = await fetch("https://toongate.workers.dev/v1/chat/completions", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", "Authorization": "Bearer sk-..." },
+  body: JSON.stringify({ model: "gpt-4o", messages: [...] }),
+});
+
+console.log(res.headers.get("x-toongate-tokens-saved")); // "569"
+console.log(res.headers.get("x-toongate-compressed"));   // "true"
+```
+
+```python Python
+import httpx
+
+with httpx.Client() as client:
+    res = client.post(
+        "https://toongate.workers.dev/v1/chat/completions",
+        headers={"Authorization": "Bearer sk-...", "Content-Type": "application/json"},
+        json={"model": "gpt-4o", "messages": [...]},
+    )
+    print(res.headers.get("x-toongate-tokens-saved"))  # "569"
+    print(res.headers.get("x-toongate-compressed"))    # "true"
+```
+
+```bash cURL
+curl -si https://toongate.workers.dev/v1/chat/completions \
+  -H "Authorization: Bearer sk-..." \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"..."}]}' \
+  | grep -i x-toongate
+
+# x-toongate-compressed: true
+# x-toongate-tokens-before: 1420
+# x-toongate-tokens-after: 851
+# x-toongate-tokens-saved: 569
+# x-toongate-eligibility-score: 0.84
+```
+</CodeGroup>
+
+---
+
+## Diagnosing low compression
+
+If you're seeing `X-Toongate-Compressed: false` more than expected:
+
+<AccordionGroup>
+  <Accordion title="Low eligibility score (< threshold)">
+    Your payload is mostly free-form text or doesn't contain uniform arrays. Check `X-Toongate-Eligibility-Score` — if it's consistently below `0.4`, compression won't help your use case.
+
+    **Fix:** Structure your RAG results or data as a top-level array before inserting into messages content. See [What gets compressed](/docs/compression/what-gets-compressed).
+  </Accordion>
+
+  <Accordion title="Threshold too high">
+    Default `TOON_THRESHOLD=0.6`. If scores are in the 0.4–0.6 range, lowering the threshold will compress more.
+
+    **Fix:** Set `TOON_THRESHOLD=0.4` (or use a per-route threshold like `TOON_THRESHOLD_CHAT=0.4`).
+  </Accordion>
+
+  <Accordion title="Small arrays (< 3 rows)">
+    TOON encoding has a small header overhead. Arrays with 1–2 objects often score low.
+
+    **Fix:** Batch smaller arrays together before sending. Aim for 5+ rows per array.
+  </Accordion>
+</AccordionGroup>

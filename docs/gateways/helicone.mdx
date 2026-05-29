@@ -1,0 +1,76 @@
+---
+title: Helicone
+description: Use toongate in front of Helicone for compressed requests with full observability.
+---
+
+## Setup
+
+Point `UPSTREAM_URL` at your Helicone gateway URL:
+
+```bash
+UPSTREAM_URL=https://oai.helicone.ai/v1
+OPENAI_API_KEY=sk-proj-...
+```
+
+```typescript
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "https://toongate.workers.dev/v1",
+  defaultHeaders: {
+    "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+  },
+});
+```
+
+The request flows through both layers:
+
+```
+Your App → toongate (compress) → Helicone (log) → OpenAI
+```
+
+---
+
+## How headers pass through
+
+toongate forwards all request headers it doesn't own to the upstream. Helicone's custom headers pass through unchanged:
+
+| Header | Purpose |
+|---|---|
+| `Helicone-Auth` | Helicone authentication |
+| `Helicone-User-Id` | Associate requests with a user |
+| `Helicone-Session-Id` | Group requests into sessions |
+| `Helicone-Property-*` | Custom metadata properties |
+| `Helicone-Cache-Enabled` | Helicone cache control |
+
+toongate adds its own `X-Toongate-*` headers to the response — these show up in Helicone's request logs as additional response headers.
+
+---
+
+## Anthropic via Helicone
+
+For Claude models through Helicone:
+
+```bash
+UPSTREAM_URL=https://anthropic.helicone.ai
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic({
+  baseURL: "https://toongate.workers.dev/v1",
+  defaultHeaders: {
+    "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+  },
+});
+```
+
+---
+
+## What Helicone sees
+
+Helicone logs the compressed request body (TOON format) as the request payload. Token counts in Helicone's dashboard will reflect the compressed token count — which is the actual number of tokens sent to OpenAI or Anthropic.
+
+The `X-Toongate-Tokens-Before` header lets you see the original (pre-compression) token count for comparison.

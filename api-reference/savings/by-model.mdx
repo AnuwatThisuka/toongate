@@ -1,0 +1,76 @@
+---
+title: "GET /savings/by-model"
+api: "GET https://toongate.workers.dev/savings/by-model"
+description: Returns savings totals grouped by model name.
+authMethod: "key"
+---
+
+## Overview
+
+Aggregates the D1 savings log by `model` — useful for understanding which models drive the most token cost and where toongate savings are concentrated.
+
+## Authorization
+
+<ParamField header="X-Toongate-Admin-Key" type="string" required>
+  Admin key set via `ADMIN_KEY` environment variable. Returns `404` if not configured.
+</ParamField>
+
+## Response
+
+<ResponseField name="rows" type="array">
+  One entry per distinct model seen in the savings log, sorted by `tokens_saved` descending.
+</ResponseField>
+
+<ResponseField name="rows[].model" type="string">
+  Model name (e.g. `gpt-4o`, `claude-opus-4-5`).
+</ResponseField>
+
+<ResponseField name="rows[].tokens_saved" type="number">
+  Total tokens saved across all requests for this model.
+</ResponseField>
+
+<ResponseField name="rows[].usd_saved" type="number">
+  Total estimated USD saved for this model.
+</ResponseField>
+
+<ResponseField name="rows[].request_count" type="number">
+  Total requests logged for this model (including uncompressed).
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/savings/by-model \
+  -H "X-Toongate-Admin-Key: your-admin-key"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "rows": [
+    {
+      "model": "gpt-4o",
+      "tokens_saved": 3104821,
+      "usd_saved": 15.52,
+      "request_count": 12041
+    },
+    {
+      "model": "gpt-4o-mini",
+      "tokens_saved": 1716483,
+      "usd_saved": 8.58,
+      "request_count": 6391
+    },
+    {
+      "model": "claude-opus-4-5",
+      "tokens_saved": 204812,
+      "usd_saved": 6.14,
+      "request_count": 892
+    }
+  ]
+}
+```
+
+```json 401
+{ "error": "unauthorized" }
+```
+</ResponseExample>

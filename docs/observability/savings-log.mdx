@@ -1,0 +1,90 @@
+---
+title: Savings Log
+description: How toongate logs token savings to D1 and what each field means.
+---
+
+## Overview
+
+When `TOON_LOG_SAVINGS=true` (the default), toongate writes one row to the D1 `savings` table after every proxied request. The write is fire-and-forget — it never blocks the response to your app.
+
+---
+
+## D1 schema
+
+```sql
+CREATE TABLE savings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT,
+  model TEXT,
+  endpoint TEXT,
+  tokens_before INTEGER,
+  tokens_after INTEGER,
+  tokens_saved INTEGER,
+  usd_saved REAL,
+  elapsed_ms INTEGER
+);
+```
+
+| Column | Description |
+|---|---|
+| `id` | Auto-incrementing row ID |
+| `ts` | ISO 8601 timestamp of the request |
+| `model` | Model name from the request body (e.g. `gpt-4o`) |
+| `endpoint` | Route path (e.g. `/v1/chat/completions`) |
+| `tokens_before` | Estimated token count before compression |
+| `tokens_after` | Estimated token count after compression |
+| `tokens_saved` | `tokens_before - tokens_after` |
+| `usd_saved` | Estimated cost savings in USD based on per-model pricing |
+| `elapsed_ms` | Total time from request received to response returned |
+
+---
+
+## Disabling logging
+
+To skip D1 writes entirely (e.g. to stay within D1 free tier write limits):
+
+```bash
+TOON_LOG_SAVINGS=false
+```
+
+Debug headers (`X-Toongate-*`) are still returned on every response — logging only controls whether rows are written to D1.
+
+---
+
+## Querying the log
+
+Use the REST API for simple queries — see [Savings API](/docs/observability/savings-api).
+
+For ad-hoc analysis, query D1 directly via Wrangler:
+
+```bash
+# Savings for the last 7 days
+npx wrangler d1 execute toongate-savings --remote \
+  --command "SELECT substr(ts,1,10) as date,
+                    COUNT(*) as requests,
+                    SUM(tokens_saved) as tokens_saved,
+                    ROUND(SUM(usd_saved),4) as usd_saved
+             FROM savings
+             WHERE ts > datetime('now', '-7 days')
+             GROUP BY date
+             ORDER BY date DESC"
+
+# Top 10 highest-savings requests
+npx wrangler d1 execute toongate-savings --remote \
+  --command "SELECT id, ts, model, tokens_saved, usd_saved
+             FROM savings
+             ORDER BY tokens_saved DESC
+             LIMIT 10"
+```
+
+---
+
+## Viewing the dashboard
+
+toongate ships a built-in HTML dashboard at:
+
+```
+GET /savings/dashboard
+```
+
+Open it in your browser after deploying for a quick visual overview of savings over time, broken down by model and endpoint.

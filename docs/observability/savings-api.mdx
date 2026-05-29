@@ -1,0 +1,123 @@
+---
+title: Savings API
+description: Query your token savings over time via REST — no Wrangler CLI needed.
+---
+
+## Overview
+
+Every request through toongate writes a savings row to D1. You can query this data via REST endpoints — no Wrangler CLI required.
+
+All savings endpoints require the `X-Toongate-Admin-Key` header. If `ADMIN_KEY` is not set in your environment, these routes return `404`.
+
+```bash
+curl https://toongate.workers.dev/savings/summary \
+  -H "X-Toongate-Admin-Key: your-admin-key"
+```
+
+---
+
+## GET /savings/summary
+
+Returns aggregate savings across all time.
+
+**Response**
+
+```json
+{
+  "total_tokens_saved": 4821304,
+  "total_usd_saved": 24.11,
+  "total_requests": 18432,
+  "compression_rate": 0.71,
+  "period": "all-time"
+}
+```
+
+| Field | Description |
+|---|---|
+| `total_tokens_saved` | Total tokens saved across all compressed requests |
+| `total_usd_saved` | Estimated USD saved based on per-model pricing |
+| `total_requests` | Total requests logged (including uncompressed) |
+| `compression_rate` | Fraction of requests where compression happened |
+
+---
+
+## GET /savings/history
+
+Returns paginated raw savings rows from the D1 `savings` table.
+
+**Query params**
+
+| Param | Default | Description |
+|---|---|---|
+| `limit` | `20` | Rows per page (max 100) |
+| `offset` | `0` | Pagination offset |
+
+**Response**
+
+```json
+{
+  "rows": [
+    {
+      "id": 18432,
+      "ts": "2025-06-01T12:34:56Z",
+      "model": "gpt-4o",
+      "endpoint": "/v1/chat/completions",
+      "tokens_before": 1420,
+      "tokens_after": 851,
+      "tokens_saved": 569,
+      "usd_saved": 0.00285,
+      "elapsed_ms": 312
+    }
+  ],
+  "total": 18432
+}
+```
+
+---
+
+## GET /savings/dashboard
+
+Returns an HTML dashboard you can open in a browser. No admin key required — access is controlled by Cloudflare Access or your own network perimeter.
+
+```
+https://toongate.workers.dev/savings/dashboard
+```
+
+---
+
+## Query via Wrangler CLI
+
+For more complex queries, use Wrangler directly against the D1 database:
+
+```bash
+# Total savings by day
+npx wrangler d1 execute toongate-savings --remote \
+  --command "SELECT substr(ts,1,10) as date,
+                    SUM(tokens_saved) as tokens,
+                    ROUND(SUM(usd_saved),4) as usd
+             FROM savings
+             GROUP BY date
+             ORDER BY date DESC
+             LIMIT 30"
+
+# Most expensive models
+npx wrangler d1 execute toongate-savings --remote \
+  --command "SELECT model,
+                    COUNT(*) as requests,
+                    SUM(tokens_saved) as tokens_saved,
+                    ROUND(SUM(usd_saved),4) as usd_saved
+             FROM savings
+             GROUP BY model
+             ORDER BY usd_saved DESC"
+```
+
+The full D1 schema:
+
+```sql
+CREATE TABLE savings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT, model TEXT, endpoint TEXT,
+  tokens_before INTEGER, tokens_after INTEGER,
+  tokens_saved INTEGER, usd_saved REAL, elapsed_ms INTEGER
+);
+```

@@ -1,0 +1,68 @@
+---
+title: "POST /v1/embeddings"
+api: "POST https://toongate.workers.dev/v1/embeddings"
+description: OpenAI-compatible embeddings with automatic TOON compression on input arrays.
+---
+
+## Overview
+
+Proxies to the OpenAI Embeddings API (or OpenAI-compatible upstream). When the `input` field contains a uniform array of objects, toongate compresses it before forwarding.
+
+## Authorization
+
+<ParamField header="Authorization" type="string" required>
+  `Bearer <key>`. toongate injects `OPENAI_API_KEY` automatically.
+</ParamField>
+
+## Request body
+
+<ParamField body="model" type="string" required>
+  Embedding model ID (e.g. `text-embedding-3-small`, `text-embedding-3-large`).
+</ParamField>
+
+<ParamField body="input" type="string | array" required>
+  Text string, array of strings, or array of objects to embed. Arrays of objects are eligible for TOON compression.
+</ParamField>
+
+<ParamField body="encoding_format" type="string">
+  `float` (default) or `base64`.
+</ParamField>
+
+## Response headers
+
+| Header | Description |
+|---|---|
+| `X-Toongate-Compressed` | `true` if the input was compressed |
+| `X-Toongate-Tokens-Before` | Estimated token count before compression |
+| `X-Toongate-Tokens-After` | Estimated token count after compression |
+| `X-Toongate-Tokens-Saved` | Tokens saved |
+| `X-Toongate-Eligibility-Score` | Eligibility score (0–1) |
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-..." \
+  -d '{
+    "model": "text-embedding-3-small",
+    "input": "The quick brown fox"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "index": 0,
+      "embedding": [0.0023064255, -0.009327292, ...]
+    }
+  ],
+  "model": "text-embedding-3-small",
+  "usage": { "prompt_tokens": 5, "total_tokens": 5 }
+}
+```
+</ResponseExample>

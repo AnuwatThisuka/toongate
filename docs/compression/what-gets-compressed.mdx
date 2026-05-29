@@ -1,0 +1,137 @@
+---
+title: What gets compressed
+description: Which payloads benefit most from TOON encoding and how to structure prompts for maximum savings.
+---
+
+## The sweet spot: uniform arrays
+
+TOON excels at encoding arrays where every object has the same keys — because standard JSON repeats field names for every single row.
+
+The more rows, the more savings. A 100-row array saves proportionally more than a 3-row one.
+
+### High compression (40%+)
+
+<AccordionGroup>
+  <Accordion title="RAG chunks">
+    ```json
+    [
+      { "id": "chunk_01", "content": "...", "score": 0.91, "source": "docs/intro.md" },
+      { "id": "chunk_02", "content": "...", "score": 0.87, "source": "docs/api.md" },
+      { "id": "chunk_03", "content": "...", "score": 0.84, "source": "docs/guide.md" }
+    ]
+    ```
+    Uniform keys, many rows — ideal for TOON. More chunks = higher savings ratio.
+  </Accordion>
+
+  <Accordion title="Database rows">
+    ```json
+    [
+      { "user_id": 1, "name": "Alice", "plan": "pro",  "created_at": "2025-01-01" },
+      { "user_id": 2, "name": "Bob",   "plan": "free", "created_at": "2025-01-03" },
+      { "user_id": 3, "name": "Carol", "plan": "pro",  "created_at": "2025-01-05" }
+    ]
+    ```
+    Classic tabular data — field names repeat for every row in JSON.
+  </Accordion>
+
+  <Accordion title="Product catalogs">
+    ```json
+    [
+      { "sku": "A001", "name": "Widget Pro", "price": 29.99, "stock": 142 },
+      { "sku": "A002", "name": "Widget Lite","price": 9.99,  "stock": 0   },
+      { "sku": "A003", "name": "Widget Max", "price": 49.99, "stock": 37  }
+    ]
+    ```
+    E-commerce and inventory data compress extremely well.
+  </Accordion>
+
+  <Accordion title="Event logs / analytics">
+    ```json
+    [
+      { "ts": "2025-06-01T10:00:00Z", "event": "page_view", "user": "u_123", "path": "/home" },
+      { "ts": "2025-06-01T10:00:05Z", "event": "click",     "user": "u_123", "path": "/home" },
+      { "ts": "2025-06-01T10:00:12Z", "event": "page_view", "user": "u_456", "path": "/docs" }
+    ]
+    ```
+    Structured logs and analytics events are perfect candidates.
+  </Accordion>
+</AccordionGroup>
+
+### Moderate compression (20–30%)
+
+Mixed content — prompts that combine structured tables with free-form text sections. The array portion compresses; the text passes through.
+
+### No compression (pass-through)
+
+| Payload type | Why |
+|---|---|
+| Plain Q&A | No array structure to encode |
+| Creative prompts | Free-form text only |
+| Single objects (`{}`) | No repeated keys across rows |
+| Deeply nested configs | Non-uniform structure |
+| Already-compressed content | Would increase size |
+
+---
+
+## Tips to maximize savings
+
+**1. Keep arrays at the top level of message content**
+
+toongate looks for arrays in the `messages[].content` fields. Nesting arrays deeply inside strings won't be compressed.
+
+```typescript
+// ✅ Good — array in content, toongate can find it
+{ role: "user", content: JSON.stringify(myDataArray) }
+
+// ❌ Less effective — buried in a template string
+{ role: "user", content: `Here is the data: ${JSON.stringify(myDataArray)} please analyze` }
+```
+
+**2. Keep object keys consistent across rows**
+
+TOON requires uniform keys. If some rows have extra fields, split into two arrays.
+
+```json
+// ✅ Compresses well — uniform keys
+[
+  { "id": 1, "name": "Alice", "score": 0.9 },
+  { "id": 2, "name": "Bob",   "score": 0.8 }
+]
+
+// ⚠️ Lower compression — inconsistent keys
+[
+  { "id": 1, "name": "Alice", "score": 0.9, "tags": ["vip"] },
+  { "id": 2, "name": "Bob",   "score": 0.8 }
+]
+```
+
+**3. More rows = better ratio**
+
+The TOON header (`{field1,field2,...}[N]`) is a fixed overhead. The more rows you have, the smaller it is relative to the savings.
+
+| Rows | Typical token savings |
+|---|---|
+| 3–5 | 20–30% |
+| 10–20 | 35–40% |
+| 50+ | 40–45% |
+
+---
+
+## Checking what compressed
+
+After any request, check the response headers:
+
+```bash
+curl -I https://toongate.workers.dev/v1/chat/completions \
+  -H "X-API-Key: vx_..." \
+  -d '...'
+
+# Response headers:
+X-Toongate-Compressed: true
+X-Toongate-Tokens-Before: 1420
+X-Toongate-Tokens-After: 851
+X-Toongate-Tokens-Saved: 569
+X-Toongate-Eligibility-Score: 0.84
+```
+
+If `X-Toongate-Compressed: false` with a low eligibility score, your payload is free-form text and there's nothing to compress — that's expected and correct.

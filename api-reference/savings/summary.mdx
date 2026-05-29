@@ -1,0 +1,59 @@
+---
+title: "GET /savings/summary"
+api: "GET https://toongate.workers.dev/savings/summary"
+description: Returns aggregate token savings across all time.
+authMethod: "key"
+---
+
+## Authorization
+
+<ParamField header="X-Toongate-Admin-Key" type="string" required>
+  Admin key set via `ADMIN_KEY` environment variable. Returns `404` if not configured.
+</ParamField>
+
+## Response
+
+<ResponseField name="total_tokens_saved" type="number">
+  Total tokens saved across all compressed requests.
+</ResponseField>
+
+<ResponseField name="total_usd_saved" type="number">
+  Estimated USD saved based on per-model pricing at time of request.
+</ResponseField>
+
+<ResponseField name="total_requests" type="number">
+  Total requests logged, including uncompressed pass-throughs.
+</ResponseField>
+
+<ResponseField name="compression_rate" type="number">
+  Fraction of requests (0–1) where compression happened.
+</ResponseField>
+
+<ResponseField name="period" type="string">
+  Always `"all-time"` in the current version.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/savings/summary \
+  -H "X-Toongate-Admin-Key: your-admin-key"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "total_tokens_saved": 4821304,
+  "total_usd_saved": 24.11,
+  "total_requests": 18432,
+  "compression_rate": 0.71,
+  "period": "all-time"
+}
+```
+
+```json 401
+{
+  "error": "unauthorized"
+}
+```
+</ResponseExample>

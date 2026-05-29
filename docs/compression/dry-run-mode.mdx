@@ -1,0 +1,89 @@
+---
+title: Dry-run Mode
+description: Measure token savings on real traffic before enabling compression.
+---
+
+## What is dry-run mode?
+
+When `TOON_DRY_RUN=true`, toongate goes through the full compression pipeline — scoring the payload, calculating how many tokens would be saved — but sends the **original, uncompressed payload** to the upstream.
+
+This lets you measure the impact of toongate on your real traffic without changing what your LLM provider receives.
+
+---
+
+## Enabling dry-run
+
+**Local development** — add to `.dev.vars`:
+
+```bash
+TOON_DRY_RUN=true
+```
+
+**Production** — add to `wrangler.jsonc` under `[vars]`:
+
+```jsonc
+"vars": {
+  "TOON_DRY_RUN": "true"
+}
+```
+
+Or set as a secret (though it's not sensitive, so `vars` is fine):
+
+```bash
+wrangler secret put TOON_DRY_RUN
+```
+
+---
+
+## What happens in dry-run
+
+| Step | Normal mode | Dry-run mode |
+|---|---|---|
+| Score payload | Yes | Yes |
+| Compress payload | Yes (if score ≥ threshold) | **No** |
+| Forward to upstream | Compressed body | Original body |
+| Return `X-Toongate-Compressed` header | `true` or `false` | Always `false` |
+| Return `X-Toongate-Tokens-Saved` header | Actual savings | Estimated savings |
+| Write to D1 savings log | Yes | Yes (if `TOON_LOG_SAVINGS=true`) |
+
+The `X-Toongate-Tokens-Saved` header in dry-run mode is an estimate — it shows what *would* have been saved if compression were enabled.
+
+---
+
+## Reviewing dry-run results
+
+After running traffic in dry-run mode, query D1 to see the estimated savings:
+
+```bash
+# Average estimated savings ratio
+npx wrangler d1 execute toongate-savings --remote \
+  --command "SELECT
+               COUNT(*) as requests,
+               AVG(tokens_saved * 1.0 / NULLIF(tokens_before, 0)) as avg_savings_ratio,
+               SUM(tokens_saved) as total_tokens_would_save,
+               ROUND(SUM(usd_saved), 4) as total_usd_would_save
+             FROM savings"
+```
+
+Use this data to decide:
+
+- If `avg_savings_ratio` is above `0.2`, enabling compression will meaningfully reduce costs
+- If it's below `0.1`, your traffic is mostly free-form text — compression won't help much
+- Adjust `TOON_THRESHOLD` based on the distribution of eligibility scores you see
+
+---
+
+## Switching to live compression
+
+Once you're satisfied with the dry-run estimates:
+
+```bash
+# Remove or set to false
+TOON_DRY_RUN=false
+```
+
+Compression activates immediately on the next request. No other changes needed.
+
+<Tip>
+  Run dry-run for at least 24 hours to capture all your request patterns, especially if traffic varies by time of day or day of week.
+</Tip>

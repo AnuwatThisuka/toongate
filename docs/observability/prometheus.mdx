@@ -1,0 +1,83 @@
+---
+title: Prometheus
+description: Exporting toongate metrics to Prometheus and Grafana.
+---
+
+## Overview
+
+toongate does not currently ship a native Prometheus `/metrics` endpoint. However, you can build a Prometheus exporter on top of the [Savings API](/docs/observability/savings-api) using a simple scrape adapter.
+
+---
+
+## Option 1 — Scrape adapter Worker
+
+Deploy a small Cloudflare Worker (or any HTTP service) that queries the toongate savings API and converts the response to Prometheus text format:
+
+```typescript
+// scraper.ts
+export default {
+  async fetch(req: Request, env: Env) {
+    const summary = await fetch("https://toongate.workers.dev/savings/summary", {
+      headers: { "X-Toongate-Admin-Key": env.ADMIN_KEY },
+    }).then((r) => r.json() as any);
+
+    const lines = [
+      "# HELP toongate_tokens_saved_total Total tokens saved",
+      "# TYPE toongate_tokens_saved_total counter",
+      `toongate_tokens_saved_total ${summary.total_tokens_saved}`,
+      "",
+      "# HELP toongate_usd_saved_total Estimated USD saved",
+      "# TYPE toongate_usd_saved_total counter",
+      `toongate_usd_saved_total ${summary.total_usd_saved}`,
+      "",
+      "# HELP toongate_requests_total Total requests logged",
+      "# TYPE toongate_requests_total counter",
+      `toongate_requests_total ${summary.total_requests}`,
+      "",
+      "# HELP toongate_compression_rate Fraction of requests compressed",
+      "# TYPE toongate_compression_rate gauge",
+      `toongate_compression_rate ${summary.compression_rate}`,
+    ];
+
+    return new Response(lines.join("\n") + "\n", {
+      headers: { "Content-Type": "text/plain; version=0.0.4" },
+    });
+  },
+};
+```
+
+Point your Prometheus `scrape_configs` at the scraper URL:
+
+```yaml
+scrape_configs:
+  - job_name: toongate
+    static_configs:
+      - targets: ["scraper.yourworker.workers.dev"]
+    scrape_interval: 60s
+```
+
+---
+
+## Option 2 — Grafana Cloud with D1 plugin
+
+If you use Grafana Cloud, you can connect directly to Cloudflare D1 via the SQLite plugin or query the REST API via the Infinity data source plugin.
+
+**Infinity data source example:**
+
+1. Install the [Infinity plugin](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/)
+2. Add a new Infinity data source
+3. Create a JSON query pointing at `https://toongate.workers.dev/savings/summary` with the `X-Toongate-Admin-Key` header
+
+---
+
+## Available metrics (via Savings API)
+
+| Metric | Source |
+|---|---|
+| Total tokens saved | `GET /savings/summary` → `total_tokens_saved` |
+| Total USD saved | `GET /savings/summary` → `total_usd_saved` |
+| Total requests | `GET /savings/summary` → `total_requests` |
+| Compression rate | `GET /savings/summary` → `compression_rate` |
+| Per-request data | `GET /savings/history` — paginate for time-series |
+
+For per-request granularity in Prometheus, poll `/savings/history` and emit individual counter increments. Set your scrape interval to match your request rate.

@@ -1,0 +1,103 @@
+---
+title: Configuration
+description: All environment variables for toongate — thresholds, timeouts, dry-run mode, and more.
+---
+
+## Environment variables
+
+Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive values go in `wrangler.jsonc` under `[vars]`.
+
+### Required
+
+| Variable | Example | Description |
+|---|---|---|
+| `UPSTREAM_URL` | `https://api.openai.com/v1` | Upstream base URL. See [Gateway setup](/docs/gateways/openai) for examples per provider. |
+| `OPENAI_API_KEY` | `sk-...` | Injected as `Authorization: Bearer` on OpenAI routes. Required for OpenAI routes. |
+
+### Provider keys (set the ones you use)
+
+| Variable | Description |
+|---|---|
+| `ANTHROPIC_API_KEY` | Injected as `x-api-key` on Anthropic `/v1/messages` routes. |
+
+### Gateway auth
+
+| Variable | Example | Description |
+|---|---|---|
+| `CF_AIG_TOKEN` | `vck_...` | Cloudflare AI Gateway auth token. Accepts bare token or `Bearer token` — normalized automatically. Leave empty if gateway auth is disabled. |
+
+### Compression tuning
+
+| Variable | Default | Description |
+|---|---|---|
+| `TOON_THRESHOLD` | `0.6` | Minimum eligibility score (0–1) before encoding. Lower = more aggressive. |
+| `TOON_THRESHOLD_CHAT` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for `/v1/chat/completions`. |
+| `TOON_THRESHOLD_EMBEDDINGS` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for `/v1/embeddings`. |
+| `TOON_THRESHOLD_MESSAGES` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for Anthropic `/v1/messages`. |
+| `TOON_DRY_RUN` | `false` | When `true`, estimates savings but sends original payload. Great for testing before enabling compression on production traffic. |
+| `TOON_LOG_SAVINGS` | `true` | Write per-request savings rows to D1. Set `false` to skip D1 writes entirely. |
+
+### Reliability
+
+| Variable | Default | Description |
+|---|---|---|
+| `UPSTREAM_TIMEOUT_MS` | `30000` | Abort upstream fetch after this many milliseconds. Returns `504` to client on timeout. |
+
+### Observability & admin
+
+| Variable | Description |
+|---|---|
+| `ADMIN_KEY` | Protects `GET /savings/*`. If not set, those routes return 404. Set to a random 32+ char string. |
+
+---
+
+## Threshold tuning guide
+
+Not sure what threshold to use? Start with dry-run mode:
+
+<Steps>
+  <Step title="Enable dry-run mode">
+    Set `TOON_DRY_RUN=true` in `.dev.vars` or `wrangler.jsonc`.
+  </Step>
+  <Step title="Run your real traffic">
+    Use toongate normally for a day or two. No payloads are compressed — but savings are estimated and logged.
+  </Step>
+  <Step title="Query your savings log">
+    ```bash
+    npx wrangler d1 execute toongate-savings --local \
+      --command "SELECT AVG(tokens_saved * 1.0 / tokens_before) as avg_ratio,
+                        AVG(tokens_saved) as avg_saved
+                 FROM savings"
+    ```
+  </Step>
+  <Step title="Choose your threshold">
+    If `avg_ratio` is high (>0.3) across most requests → lower threshold to 0.4–0.5. If mixed → keep at 0.6. If low → your traffic is mostly free-form text; compression won't help much.
+  </Step>
+  <Step title="Disable dry-run">
+    Remove `TOON_DRY_RUN` or set to `false`. Real compression starts immediately.
+  </Step>
+</Steps>
+
+---
+
+## Example: `.dev.vars` (full)
+
+```bash
+# Required
+UPSTREAM_URL=https://api.openai.com/v1
+OPENAI_API_KEY=sk-proj-...
+
+# Optional providers
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Compression
+TOON_THRESHOLD=0.6
+TOON_DRY_RUN=false
+TOON_LOG_SAVINGS=true
+
+# Admin
+ADMIN_KEY=change-me-to-a-random-32-char-string
+
+# Reliability
+UPSTREAM_TIMEOUT_MS=30000
+```
