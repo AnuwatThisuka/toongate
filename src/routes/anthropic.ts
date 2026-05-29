@@ -57,8 +57,20 @@ async function proxy(
     });
 
     if (modified) {
-      outBodyText = JSON.stringify({ ...body, messages: processedMessages });
-      tokensAfter = estimateTokens(outBodyText);
+      const compressedBody = JSON.stringify({ ...body, messages: processedMessages });
+      tokensAfter = estimateTokens(compressedBody);
+
+      if (env.TOON_DRY_RUN === "true") {
+        const saved = Math.max(0, tokensBefore - tokensAfter);
+        console.log(
+          `[TOON DRY-RUN] model=${model} endpoint=${endpoint}` +
+          ` tokens_before=${tokensBefore} tokens_after=${tokensAfter}` +
+          ` tokens_saved=${saved} usd_saved=${calcUsdSaved(model, saved).toFixed(6)}` +
+          ` — payload NOT compressed`,
+        );
+      } else {
+        outBodyText = compressedBody;
+      }
     }
   }
 
