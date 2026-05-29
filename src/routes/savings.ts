@@ -158,10 +158,11 @@ app.get("/savings/dashboard", async (c) => {
     .map((r) => {
       const pct = Math.round((r.tokens_saved / maxTokens) * 100);
       const label = r.day.slice(5); // MM-DD
+      const dimClass = pct < 10 ? " dim" : "";
       return `<div class="bar-row">
-        <span class="bar-label">${label}</span>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-        <span class="bar-val">${fmt(r.tokens_saved)}</span>
+        <span class="bar-day">${label}</span>
+        <div class="bar-track"><div class="bar-fill${dimClass}" style="width:${pct}%"></div></div>
+        <span class="bar-num">${fmt(r.tokens_saved)}</span>
       </div>`;
     })
     .join("\n");
@@ -169,10 +170,10 @@ app.get("/savings/dashboard", async (c) => {
   const modelRows = (byModel.results ?? [])
     .map(
       (m) => `<tr>
-      <td>${m.model}</td>
-      <td class="num">${fmt(m.requests)}</td>
-      <td class="num">${fmt(m.total_tokens_saved)}</td>
-      <td class="num green">$${m.total_usd_saved.toFixed(4)}</td>
+      <td><span class="dot"></span>${m.model}</td>
+      <td class="r">${fmt(m.requests)}</td>
+      <td class="r">${fmt(m.total_tokens_saved)}</td>
+      <td class="r green">$${m.total_usd_saved.toFixed(4)}</td>
     </tr>`,
     )
     .join("\n");
@@ -184,79 +185,105 @@ app.get("/savings/dashboard", async (c) => {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Toongate · Savings Dashboard</title>
+<title>toongate ~ savings</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0d0d0d;color:#e8e8e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:32px 24px}
-  .wrap{max-width:720px;margin:0 auto}
-  header{display:flex;align-items:center;gap:12px;margin-bottom:32px}
-  .logo{font-size:22px;font-weight:700;letter-spacing:-0.5px}
-  .logo span{color:#a78bfa}
-  .badge{font-size:11px;background:#1e1e2e;color:#7c7c9a;border:1px solid #2a2a3e;border-radius:6px;padding:2px 8px}
-  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:28px}
-  @media(min-width:500px){.cards{grid-template-columns:repeat(4,1fr)}}
-  .card{background:#141420;border:1px solid #1e1e2e;border-radius:12px;padding:16px}
-  .card-label{font-size:11px;color:#7c7c9a;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
-  .card-value{font-size:26px;font-weight:700;line-height:1}
-  .card-value.green{color:#4ade80}
-  .card-value.purple{color:#a78bfa}
-  .card-value.blue{color:#60a5fa}
-  .card-value.amber{color:#fbbf24}
-  section{background:#141420;border:1px solid #1e1e2e;border-radius:12px;padding:20px;margin-bottom:16px}
-  h2{font-size:13px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px}
-  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12px}
-  .bar-label{width:40px;color:#6b7280;text-align:right;flex-shrink:0}
-  .bar-track{flex:1;background:#1e1e2e;border-radius:4px;height:10px;overflow:hidden}
-  .bar-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:4px;transition:width .3s}
-  .bar-val{width:52px;color:#d1d5db;text-align:right;flex-shrink:0}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{text-align:left;color:#6b7280;font-weight:500;padding:0 8px 10px 0;border-bottom:1px solid #1e1e2e}
-  td{padding:9px 8px 9px 0;border-bottom:1px solid #111120;color:#d1d5db;word-break:break-all}
-  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  td.green{color:#4ade80}
-  footer{margin-top:24px;font-size:11px;color:#3f3f5a;text-align:center}
+  :root{
+    --bg:#080b0f;--surface:#0e1117;--border:#1a2030;--border2:#222c3c;
+    --fg:#c9d1d9;--muted:#4a5568;--dim:#2d3748;
+    --green:#39d353;--cyan:#58a6ff;--yellow:#e3b341;--red:#f85149;--purple:#bc8cff;
+  }
+  body{background:var(--bg);color:var(--fg);font-family:'JetBrains Mono',ui-monospace,'Cascadia Code',monospace;font-size:13px;min-height:100vh;padding:28px 20px}
+  .wrap{max-width:740px;margin:0 auto}
+
+  /* header */
+  .header{display:flex;align-items:baseline;gap:0;margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .prompt{color:var(--green);margin-right:6px}
+  .cmd{color:var(--fg);font-weight:700;font-size:15px}
+  .cmd .arg{color:var(--cyan)}
+  .ts{margin-left:auto;color:var(--muted);font-size:11px}
+
+  /* stat grid */
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:20px}
+  @media(min-width:480px){.stats{grid-template-columns:repeat(4,1fr)}}
+  .stat{background:var(--surface);padding:14px 16px}
+  .stat-key{color:var(--muted);font-size:10px;letter-spacing:.5px;margin-bottom:6px}
+  .stat-key::before{content:'# ';color:var(--dim)}
+  .stat-val{font-size:22px;font-weight:700;line-height:1;letter-spacing:-1px}
+  .g{color:var(--green)}.c{color:var(--cyan)}.y{color:var(--yellow)}.p{color:var(--purple)}
+
+  /* section */
+  .block{border:1px solid var(--border);margin-bottom:16px;background:var(--surface)}
+  .block-title{background:var(--border);color:var(--muted);font-size:10px;letter-spacing:.8px;padding:5px 12px;display:flex;justify-content:space-between;align-items:center}
+  .block-title .hint{color:var(--dim)}
+  .block-body{padding:16px}
+
+  /* bar chart */
+  .bar-row{display:grid;grid-template-columns:44px 1fr 56px;align-items:center;gap:10px;margin-bottom:7px}
+  .bar-day{color:var(--muted);text-align:right;font-size:11px}
+  .bar-track{background:var(--dim);height:9px;position:relative;overflow:hidden}
+  .bar-fill{height:100%;background:var(--green);position:absolute;left:0;top:0}
+  .bar-fill.dim{background:#1a3a2a}
+  .bar-num{color:var(--fg);text-align:right;font-size:11px;font-variant-numeric:tabular-nums}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  thead td{color:var(--muted);padding:0 12px 8px 0;font-size:10px;letter-spacing:.5px;border-bottom:1px solid var(--border2)}
+  thead td::before{content:'// ';color:var(--dim)}
+  tbody tr:hover{background:#0d1520}
+  td{padding:8px 12px 8px 0;border-bottom:1px solid var(--border);color:var(--fg);word-break:break-all;vertical-align:middle}
+  td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  td.green{color:var(--green)}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:8px;vertical-align:middle}
+
+  /* footer */
+  .footer{margin-top:20px;color:var(--dim);font-size:10px;display:flex;justify-content:space-between}
+  a{color:var(--muted);text-decoration:none}
+  a:hover{color:var(--cyan)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div class="logo">toon<span>gate</span></div>
-    <div class="badge">savings dashboard</div>
-  </header>
 
-  <div class="cards">
-    <div class="card">
-      <div class="card-label">Tokens saved</div>
-      <div class="card-value purple">${fmt(totalTokens)}</div>
-    </div>
-    <div class="card">
-      <div class="card-label">USD saved</div>
-      <div class="card-value green">$${totalUsd.toFixed(4)}</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Requests</div>
-      <div class="card-value blue">${fmt(totalReqs)}</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Compression</div>
-      <div class="card-value amber">${compressionRate}%</div>
+  <div class="header">
+    <span class="prompt">❯</span>
+    <span class="cmd">toongate <span class="arg">savings</span> --dashboard</span>
+    <span class="ts">${generatedAt}</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-key">tokens_saved</div><div class="stat-val p">${fmt(totalTokens)}</div></div>
+    <div class="stat"><div class="stat-key">usd_saved</div><div class="stat-val g">$${totalUsd.toFixed(4)}</div></div>
+    <div class="stat"><div class="stat-key">requests</div><div class="stat-val c">${fmt(totalReqs)}</div></div>
+    <div class="stat"><div class="stat-key">compression</div><div class="stat-val y">${compressionRate}%</div></div>
+  </div>
+
+  <div class="block">
+    <div class="block-title">TOKENS SAVED <span class="hint">last 14 days</span></div>
+    <div class="block-body">
+      ${
+        barRows ||
+        '<span style="color:var(--dim)">// no data yet</span>'
+      }
     </div>
   </div>
 
-  <section>
-    <h2>Tokens saved · last 14 days</h2>
-    ${barRows || '<p style="color:#3f3f5a;font-size:13px">No data yet.</p>'}
-  </section>
+  <div class="block">
+    <div class="block-title">BY MODEL</div>
+    <div class="block-body" style="padding:0 16px">
+      <table>
+        <thead><tr><td>model</td><td class="r">reqs</td><td class="r">tokens_saved</td><td class="r">usd_saved</td></tr></thead>
+        <tbody>${modelRows || '<tr><td colspan="4" style="color:var(--dim);padding:12px 0">// no data yet</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>
 
-  <section>
-    <h2>By model</h2>
-    <table>
-      <thead><tr><th>Model</th><th style="text-align:right">Reqs</th><th style="text-align:right">Tokens saved</th><th style="text-align:right">USD saved</th></tr></thead>
-      <tbody>${modelRows || '<tr><td colspan="4" style="color:#3f3f5a">No data yet.</td></tr>'}</tbody>
-    </table>
-  </section>
+  <div class="footer">
+    <span>toongate/savings-dashboard</span>
+    <span><a href="/savings/summary">GET /savings/summary</a> · <a href="/savings/history">GET /savings/history</a></span>
+  </div>
 
-  <footer>generated ${generatedAt} · <a href="/savings/summary" style="color:#3f3f5a">JSON API</a></footer>
 </div>
 </body>
 </html>`;
