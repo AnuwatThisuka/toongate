@@ -5,6 +5,7 @@ import { decodeFromToon } from "../lib/decoder";
 import { createSseDecodeStream } from "../lib/sse";
 import { calcUsdSaved } from "../lib/pricing";
 import { writeSavings } from "../lib/savings";
+import { resolveThreshold } from "../lib/threshold";
 
 const anthropic = new Hono<{ Bindings: Env }>();
 
@@ -44,7 +45,7 @@ async function proxy(
   // Encode request regardless of streaming — TOON compression is input-side only.
   const messages = body.messages;
   if (Array.isArray(messages)) {
-    const threshold = parseFloat(env.TOON_THRESHOLD);
+    const threshold = resolveThreshold(env, endpoint);
     let modified = false;
 
     const processedMessages = messages.map((msg: unknown) => {
