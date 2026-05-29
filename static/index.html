@@ -1,0 +1,1742 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>toongate — Cut LLM token costs up to 40%</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #000;
+        --bg1: #0a0a0a;
+        --bg2: #111;
+        --bg3: #1a1a1a;
+        --border: rgba(255, 255, 255, 0.08);
+        --border2: rgba(255, 255, 255, 0.14);
+        --text: #ededed;
+        --text2: #a1a1a1;
+        --text3: #666;
+        --white: #fff;
+        --green: #00c853;
+        --green-dim: rgba(0, 200, 83, 0.1);
+        --green-border: rgba(0, 200, 83, 0.2);
+        --blue: #0070f3;
+        --orange: #f97316;
+        --mono: "Geist Mono", monospace;
+        --sans: "Geist", sans-serif;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      /* subtle noise overlay */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 9999;
+        opacity: 0.4;
+      }
+
+      /* NAV */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(16px) saturate(180%);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav-logo {
+        font-family: var(--mono);
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--white);
+        text-decoration: none;
+        letter-spacing: -0.02em;
+      }
+
+      .nav-logo span {
+        color: var(--green);
+      }
+
+      .nav-center {
+        display: flex;
+        gap: 2px;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+
+      .nav-link {
+        padding: 6px 14px;
+        font-size: 13px;
+        color: var(--text2);
+        text-decoration: none;
+        border-radius: 6px;
+        transition:
+          background 0.15s,
+          color 0.15s;
+      }
+
+      .nav-link:hover {
+        background: var(--bg2);
+        color: var(--text);
+      }
+
+      .nav-right {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .btn-nav-ghost {
+        padding: 7px 14px;
+        font-size: 13px;
+        color: var(--text2);
+        text-decoration: none;
+        border: 1px solid var(--border2);
+        border-radius: 7px;
+        transition: all 0.15s;
+        font-family: var(--sans);
+      }
+
+      .btn-nav-ghost:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+
+      .btn-nav-primary {
+        padding: 7px 14px;
+        font-size: 13px;
+        color: #000;
+        background: var(--white);
+        text-decoration: none;
+        border-radius: 7px;
+        font-weight: 500;
+        transition: opacity 0.15s;
+        font-family: var(--sans);
+      }
+
+      .btn-nav-primary:hover {
+        opacity: 0.85;
+      }
+
+      /* HERO */
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 120px 24px 80px;
+        position: relative;
+      }
+
+      /* radial glow behind hero */
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: 15%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 600px;
+        height: 400px;
+        background: radial-gradient(
+          ellipse,
+          rgba(0, 200, 83, 0.07) 0%,
+          transparent 65%
+        );
+        pointer-events: none;
+      }
+
+      .hero-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px 5px 8px;
+        background: var(--bg2);
+        border: 1px solid var(--border2);
+        border-radius: 100px;
+        font-size: 12px;
+        color: var(--text2);
+        margin-bottom: 32px;
+        font-family: var(--mono);
+        animation: fadeUp 0.5s ease both;
+      }
+
+      .hero-eyebrow-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+        animation: blink 2s ease infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      .hero h1 {
+        font-size: clamp(40px, 6vw, 76px);
+        font-weight: 600;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        color: var(--white);
+        margin-bottom: 24px;
+        animation: fadeUp 0.5s ease 0.08s both;
+      }
+
+      .hero h1 .savings {
+        position: relative;
+        display: inline-block;
+        color: var(--green);
+      }
+
+      .hero-sub {
+        font-size: 17px;
+        color: var(--text2);
+        max-width: 480px;
+        line-height: 1.65;
+        margin-bottom: 40px;
+        font-weight: 400;
+        animation: fadeUp 0.5s ease 0.16s both;
+      }
+
+      .hero-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 60px;
+        animation: fadeUp 0.5s ease 0.24s both;
+      }
+
+      .btn-primary {
+        padding: 10px 22px;
+        background: var(--white);
+        color: #000;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        transition:
+          opacity 0.15s,
+          transform 0.15s;
+        font-family: var(--sans);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .btn-primary:hover {
+        opacity: 0.88;
+        transform: translateY(-1px);
+      }
+
+      .btn-secondary {
+        padding: 10px 22px;
+        background: transparent;
+        color: var(--text2);
+        font-size: 14px;
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.15s;
+        font-family: var(--sans);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .btn-secondary:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+
+      /* DIFF BLOCK */
+      .diff-block {
+        width: 100%;
+        max-width: 560px;
+        background: var(--bg1);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        text-align: left;
+        animation: fadeUp 0.5s ease 0.32s both;
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+
+      .diff-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg2);
+      }
+
+      .diff-dots {
+        display: flex;
+        gap: 6px;
+      }
+
+      .diff-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .diff-dot-r {
+        background: #ff5f57;
+      }
+
+      .diff-dot-y {
+        background: #febc2e;
+      }
+
+      .diff-dot-g {
+        background: #28c840;
+      }
+
+      .diff-filename {
+        font-size: 11px;
+        color: var(--text3);
+      }
+
+      .diff-body {
+        padding: 20px;
+        line-height: 2;
+      }
+
+      .diff-rem {
+        color: #f87171;
+      }
+
+      .diff-rem::before {
+        content: "- ";
+        opacity: 0.6;
+      }
+
+      .diff-add {
+        color: #86efac;
+      }
+
+      .diff-add::before {
+        content: "+ ";
+        opacity: 0.6;
+      }
+
+      .diff-ctx {
+        color: var(--text3);
+      }
+
+      .diff-comment {
+        color: var(--text3);
+      }
+
+      .diff-comment::before {
+        content: "  ";
+      }
+
+      .diff-str {
+        color: #86efac;
+      }
+
+      .diff-str-rem {
+        color: #fca5a5;
+      }
+
+      .diff-kw {
+        color: #93c5fd;
+      }
+
+      .diff-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--green-dim);
+        border: 1px solid var(--green-border);
+        color: var(--green);
+        padding: 3px 10px;
+        border-radius: 100px;
+        font-size: 11px;
+      }
+
+      /* STATS ROW */
+      .stats-row {
+        display: flex;
+        gap: 0;
+        max-width: 760px;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 0 auto;
+        animation: fadeUp 0.5s ease 0.4s both;
+      }
+
+      .stat {
+        flex: 1;
+        padding: 24px 28px;
+        border-right: 1px solid var(--border);
+        text-align: center;
+      }
+
+      .stat:last-child {
+        border-right: none;
+      }
+
+      .stat-num {
+        font-size: 30px;
+        font-weight: 600;
+        color: var(--white);
+        letter-spacing: -0.03em;
+        display: block;
+        line-height: 1;
+        margin-bottom: 6px;
+      }
+
+      .stat-num .unit {
+        font-size: 18px;
+        color: var(--green);
+      }
+
+      .stat-lbl {
+        font-size: 12px;
+        color: var(--text3);
+      }
+
+      /* SECTION WRAPPER */
+      .section {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 100px 24px;
+      }
+
+      .section-label {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--green);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+
+      .section-title {
+        font-size: clamp(26px, 3.5vw, 42px);
+        font-weight: 600;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        color: var(--white);
+        margin-bottom: 16px;
+      }
+
+      .section-sub {
+        font-size: 16px;
+        color: var(--text2);
+        max-width: 480px;
+        line-height: 1.7;
+        margin-bottom: 56px;
+      }
+
+      /* BEFORE/AFTER */
+      .ba-grid {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 16px;
+        align-items: start;
+        margin-bottom: 48px;
+      }
+
+      .ba-card {
+        background: var(--bg1);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .ba-header {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--bg2);
+      }
+
+      .ba-title {
+        font-size: 11px;
+        color: var(--text3);
+        font-family: var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .ba-tokens {
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+
+      .ba-tokens-bad {
+        background: rgba(248, 113, 113, 0.1);
+        color: #f87171;
+      }
+
+      .ba-tokens-good {
+        background: var(--green-dim);
+        color: var(--green);
+      }
+
+      .ba-body {
+        padding: 16px;
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.8;
+        color: var(--text2);
+      }
+
+      .ba-body .key {
+        color: #93c5fd;
+      }
+
+      .ba-body .val {
+        color: #fde68a;
+      }
+
+      .ba-body .str {
+        color: #86efac;
+      }
+
+      .ba-body .repeat {
+        background: rgba(248, 113, 113, 0.08);
+        border-radius: 2px;
+      }
+
+      .ba-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text3);
+        font-size: 20px;
+        padding-top: 52px;
+      }
+
+      .savings-pill {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: var(--green-dim);
+        border: 1px solid var(--green-border);
+        border-radius: 8px;
+        padding: 14px 20px;
+        font-size: 14px;
+        color: var(--green);
+        font-family: var(--mono);
+        margin-top: 16px;
+      }
+
+      /* HOW IT WORKS */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: var(--border);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .step {
+        background: var(--bg1);
+        padding: 28px 24px;
+        position: relative;
+      }
+
+      .step-num {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text3);
+        margin-bottom: 16px;
+        letter-spacing: 0.06em;
+      }
+
+      .step-icon {
+        width: 36px;
+        height: 36px;
+        background: var(--bg3);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+        font-size: 17px;
+      }
+
+      .step-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--white);
+        margin-bottom: 8px;
+      }
+
+      .step-desc {
+        font-size: 12px;
+        color: var(--text3);
+        line-height: 1.7;
+      }
+
+      /* GATEWAY TABLE */
+      .gateway-table {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        border-collapse: separate;
+      }
+
+      .gateway-table th {
+        padding: 11px 16px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text3);
+        text-align: left;
+        background: var(--bg2);
+        border-bottom: 1px solid var(--border);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .gateway-table td {
+        padding: 13px 16px;
+        font-size: 13px;
+        color: var(--text2);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .gateway-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .gateway-table tr:hover td {
+        background: var(--bg2);
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        padding: 3px 9px;
+        border-radius: 100px;
+        font-family: var(--mono);
+      }
+
+      .status-live {
+        background: var(--green-dim);
+        color: var(--green);
+        border: 1px solid var(--green-border);
+      }
+
+      .status-planned {
+        background: var(--bg3);
+        color: var(--text3);
+        border: 1px solid var(--border);
+      }
+
+      .gw-name {
+        color: var(--white);
+        font-weight: 500;
+      }
+
+      .gw-change {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text3);
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 3px 8px;
+      }
+
+      .gw-change span {
+        color: var(--green);
+      }
+
+      /* CODE SECTION */
+      .code-tabs {
+        display: flex;
+        gap: 1px;
+        background: var(--border);
+        border: 1px solid var(--border);
+        border-bottom: none;
+        border-radius: 10px 10px 0 0;
+        overflow: hidden;
+      }
+
+      .code-tab {
+        padding: 10px 20px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text3);
+        cursor: pointer;
+        background: var(--bg2);
+        border: none;
+        transition: all 0.15s;
+      }
+
+      .code-tab.active {
+        background: var(--bg1);
+        color: var(--text);
+      }
+
+      .code-wrap {
+        background: var(--bg1);
+        border: 1px solid var(--border);
+        border-radius: 0 0 10px 10px;
+        overflow: hidden;
+      }
+
+      .code-pane {
+        display: none;
+      }
+
+      .code-pane.active {
+        display: block;
+      }
+
+      pre {
+        padding: 24px;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.9;
+        overflow-x: auto;
+      }
+
+      .ck {
+        color: #c084fc;
+      }
+
+      .cs {
+        color: #86efac;
+      }
+
+      .cf {
+        color: #7dd3fc;
+      }
+
+      .cm {
+        color: #4b5563;
+        font-style: italic;
+      }
+
+      .cn {
+        color: #fde68a;
+      }
+
+      .co {
+        color: #6b7280;
+      }
+
+      /* METRICS ROW */
+      .metrics-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 48px;
+      }
+
+      .metric-card {
+        background: var(--bg1);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .metric-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--green),
+          transparent
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .metric-card:hover::before {
+        opacity: 1;
+      }
+
+      .metric-value {
+        font-size: 32px;
+        font-weight: 600;
+        color: var(--white);
+        letter-spacing: -0.04em;
+        line-height: 1;
+        margin-bottom: 6px;
+      }
+
+      .metric-value em {
+        color: var(--green);
+        font-style: normal;
+      }
+
+      .metric-label {
+        font-size: 12px;
+        color: var(--text3);
+      }
+
+      .metric-sub {
+        font-size: 12px;
+        color: var(--text3);
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .metric-arrow {
+        color: var(--green);
+        font-size: 11px;
+      }
+
+      /* PRICING */
+      .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .price-card {
+        background: var(--bg1);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 28px;
+        position: relative;
+      }
+
+      .price-card.featured {
+        border-color: rgba(0, 200, 83, 0.3);
+        background: linear-gradient(
+          180deg,
+          rgba(0, 200, 83, 0.04) 0%,
+          var(--bg1) 100%
+        );
+      }
+
+      .price-card.featured::before {
+        content: "Most popular";
+        position: absolute;
+        top: -1px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--green);
+        color: #000;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 3px 12px;
+        border-radius: 0 0 6px 6px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .plan-tier {
+        font-size: 12px;
+        color: var(--text3);
+        font-family: var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 12px;
+      }
+
+      .plan-price-num {
+        font-size: 40px;
+        font-weight: 600;
+        color: var(--white);
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+
+      .plan-price-num sup {
+        font-size: 20px;
+        vertical-align: super;
+      }
+
+      .plan-mo {
+        font-size: 12px;
+        color: var(--text3);
+        margin-bottom: 24px;
+        margin-top: 4px;
+      }
+
+      .plan-divider {
+        height: 1px;
+        background: var(--border);
+        margin-bottom: 20px;
+      }
+
+      .plan-items {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        margin-bottom: 24px;
+      }
+
+      .plan-items li {
+        font-size: 13px;
+        color: var(--text2);
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+
+      .plan-items li::before {
+        content: "✓";
+        color: var(--green);
+        font-size: 12px;
+        margin-top: 1px;
+        flex-shrink: 0;
+      }
+
+      .plan-btn {
+        display: block;
+        text-align: center;
+        padding: 10px;
+        border-radius: 7px;
+        font-size: 13px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.15s;
+        font-family: var(--sans);
+      }
+
+      .plan-btn-outline {
+        border: 1px solid var(--border2);
+        color: var(--text2);
+      }
+
+      .plan-btn-outline:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+
+      .plan-btn-filled {
+        background: var(--white);
+        color: #000;
+      }
+
+      .plan-btn-filled:hover {
+        opacity: 0.88;
+      }
+
+      /* CTA */
+      .cta-section {
+        margin: 0 24px 80px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 80px 40px;
+        text-align: center;
+        background: var(--bg1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .cta-section::before {
+        content: "";
+        position: absolute;
+        bottom: -60px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 500px;
+        height: 200px;
+        background: radial-gradient(
+          ellipse,
+          rgba(0, 200, 83, 0.07),
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      .cta-section h2 {
+        font-size: clamp(28px, 4vw, 48px);
+        font-weight: 600;
+        letter-spacing: -0.04em;
+        color: var(--white);
+        margin-bottom: 16px;
+      }
+
+      .cta-section p {
+        font-size: 16px;
+        color: var(--text2);
+        margin-bottom: 36px;
+      }
+
+      .email-row {
+        display: flex;
+        gap: 0;
+        max-width: 420px;
+        margin: 0 auto;
+        background: var(--bg2);
+        border: 1px solid var(--border2);
+        border-radius: 9px;
+        overflow: hidden;
+        transition: border-color 0.2s;
+      }
+
+      .email-row:focus-within {
+        border-color: rgba(0, 200, 83, 0.4);
+      }
+
+      .email-input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        padding: 12px 16px;
+        font-size: 14px;
+        color: var(--text);
+        font-family: var(--sans);
+      }
+
+      .email-input::placeholder {
+        color: var(--text3);
+      }
+
+      .email-submit {
+        background: var(--white);
+        border: none;
+        padding: 12px 20px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #000;
+        cursor: pointer;
+        font-family: var(--sans);
+        transition: opacity 0.15s;
+        white-space: nowrap;
+      }
+
+      .email-submit:hover {
+        opacity: 0.85;
+      }
+
+      /* FOOTER */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 28px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+        max-width: 960px;
+        margin: 0 auto;
+      }
+
+      .footer-logo {
+        font-family: var(--mono);
+        font-size: 14px;
+        color: var(--text2);
+      }
+
+      .footer-logo span {
+        color: var(--green);
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 20px;
+      }
+
+      .footer-links a {
+        font-size: 12px;
+        color: var(--text3);
+        text-decoration: none;
+        transition: color 0.15s;
+      }
+
+      .footer-links a:hover {
+        color: var(--text2);
+      }
+
+      .footer-note {
+        font-size: 12px;
+        color: var(--text3);
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(16px);
+        transition:
+          opacity 0.55s ease,
+          transform 0.55s ease;
+      }
+
+      .reveal.vis {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 768px) {
+        nav {
+          padding: 0 16px;
+        }
+
+        .nav-center {
+          display: none;
+        }
+
+        .hero h1 {
+          font-size: 38px;
+        }
+
+        .ba-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .ba-arrow {
+          display: none;
+        }
+
+        .steps {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .pricing-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .stats-row {
+          flex-direction: column;
+        }
+
+        .stat {
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .stat:last-child {
+          border-bottom: none;
+        }
+
+        .metrics-row {
+          grid-template-columns: 1fr;
+        }
+
+        .section {
+          padding: 64px 20px;
+        }
+
+        .cta-section {
+          padding: 48px 20px;
+          margin: 0 16px 60px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- NAV -->
+    <nav>
+      <a href="#" class="nav-logo">toon<span>gate</span></a>
+      <div class="nav-center">
+        <a href="#how" class="nav-link">How it works</a>
+        <a href="#gateways" class="nav-link">Gateways</a>
+        <a href="#pricing" class="nav-link">Pricing</a>
+        <a href="#" class="nav-link">Docs</a>
+      </div>
+      <div class="nav-right">
+        <a
+          href="https://github.com/anuwatthisuka/toongate"
+          class="btn-nav-ghost"
+          >GitHub</a
+        >
+        <a href="#waitlist" class="btn-nav-primary">Get early access</a>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-dot"></span>
+        Active compression · Built on Cloudflare Workers
+      </div>
+
+      <h1>Cut LLM costs<br />by <span class="savings">up to 40%</span></h1>
+
+      <p class="hero-sub">
+        One
+        <code
+          style="
+            font-family: var(--mono);
+            font-size: 13px;
+            background: var(--bg2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text);
+          "
+          >baseURL</code
+        >
+        change. toongate compresses your prompts before they reach your provider
+        — and passes responses back unchanged.
+      </p>
+
+      <div class="hero-actions">
+        <a href="#waitlist" class="btn-primary"> Start saving tokens → </a>
+        <a
+          href="https://github.com/anuwatthisuka/toongate"
+          class="btn-secondary"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+            />
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <div class="diff-block">
+        <div class="diff-header">
+          <div class="diff-dots">
+            <div class="diff-dot diff-dot-r"></div>
+            <div class="diff-dot diff-dot-y"></div>
+            <div class="diff-dot diff-dot-g"></div>
+          </div>
+          <span class="diff-filename">app.ts</span>
+          <span class="diff-badge">1 line changed</span>
+        </div>
+        <div class="diff-body">
+          <div class="diff-ctx">
+            <span class="ck">const</span> openai = <span class="ck">new</span>
+            <span class="cf">OpenAI</span>({'{'}
+          </div>
+          <div class="diff-rem">
+            &nbsp;&nbsp;baseURL:
+            <span class="diff-str-rem"
+              >"https://gateway.ai.cloudflare.com/v1/..."</span
+            >,
+          </div>
+          <div class="diff-add">
+            &nbsp;&nbsp;baseURL:
+            <span class="diff-str">"https://toongate.workers.dev/v1"</span
+            >,&nbsp;&nbsp;<span class="cm">// that's it</span>
+          </div>
+          <div class="diff-ctx">{'}'});</div>
+          <div
+            class="diff-comment"
+            style="margin-top: 8px; color: #4b5563; font-style: italic"
+          >
+            // All gateway headers still pass through untouched
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <div
+      class="stats-row reveal"
+      style="max-width: 760px; margin: 0 auto 0; padding: 0 24px 100px"
+    >
+      <div class="stat">
+        <span class="stat-num">40<span class="unit">%</span></span>
+        <div class="stat-lbl">fewer tokens on RAG pipelines</div>
+      </div>
+      <div class="stat">
+        <span class="stat-num">&lt;1<span class="unit">ms</span></span>
+        <div class="stat-lbl">overhead per request</div>
+      </div>
+      <div class="stat">
+        <span class="stat-num">0</span>
+        <div class="stat-lbl">SDK changes required</div>
+      </div>
+      <div class="stat">
+        <span class="stat-num">6<span class="unit">+</span></span>
+        <div class="stat-lbl">gateways supported</div>
+      </div>
+    </div>
+
+    <!-- BEFORE / AFTER -->
+    <div class="section reveal" id="compression">
+      <div class="section-label">Compression</div>
+      <div class="section-title">JSON repeats keys.<br />TOON doesn't.</div>
+      <p class="section-sub">
+        Uniform arrays of objects — RAG chunks, DB rows, product catalogs —
+        compress ~40%. Free-form text passes through unchanged.
+      </p>
+
+      <div class="ba-grid">
+        <div>
+          <div class="ba-card">
+            <div class="ba-header">
+              <span class="ba-title">JSON (before)</span>
+              <span class="ba-tokens ba-tokens-bad">~38 tokens</span>
+            </div>
+            <div class="ba-body">
+              <pre style="padding: 16px; font-size: 12px">[
+  {<span class="key">"id"</span>: <span class="val">1</span>, <span class="key">"name"</span>: <span class="str">"Alice"</span>, <span class="key">"score"</span>: <span class="val">0.91</span>},
+  {<span class="key">"id"</span>: <span class="val">2</span>, <span class="key">"name"</span>: <span class="str">"Bob"</span>,   <span class="key">"score"</span>: <span class="val">0.87</span>},
+  {<span class="key">"id"</span>: <span class="val">3</span>, <span class="key">"name"</span>: <span class="str">"Carol"</span>, <span class="key">"score"</span>: <span class="val">0.79</span>}
+]</pre>
+            </div>
+          </div>
+          <div class="savings-pill">⬆ field names repeat on every row</div>
+        </div>
+
+        <div class="ba-arrow">→</div>
+
+        <div>
+          <div class="ba-card" style="border-color: rgba(0, 200, 83, 0.2)">
+            <div class="ba-header">
+              <span class="ba-title">TOON (after)</span>
+              <span class="ba-tokens ba-tokens-good"
+                >~22 tokens — 42% fewer</span
+              >
+            </div>
+            <div class="ba-body">
+              <pre style="padding: 16px; font-size: 12px; color: #a1a1a1">
+{id,name,score}[3]
+1|Alice|0.91
+2|Bob|0.87
+3|Carol|0.79</pre
+              >
+            </div>
+          </div>
+          <div class="savings-pill" style="border-color: var(--green-border)">
+            ✓ field names declared once, rows pipe-delimited
+          </div>
+        </div>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="metric-value"><em>~40%</em></div>
+          <div class="metric-label">token savings on RAG chunks</div>
+          <div class="metric-sub">
+            <span class="metric-arrow">↑</span> accuracy slightly higher too
+            (76.4% vs 75.0%)
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value"><em>0%</em></div>
+          <div class="metric-label">overhead on free-form text</div>
+          <div class="metric-sub">Plain prompts pass through unchanged</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value"><em>0.6</em></div>
+          <div class="metric-label">default eligibility threshold</div>
+          <div class="metric-sub">Tunable per-route via env var</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div class="section reveal" id="how">
+      <div class="section-label">How it works</div>
+      <div class="section-title">Four steps.<br />Invisible to your app.</div>
+      <p class="section-sub">
+        toongate runs at the edge, compresses, forwards, and passes the response
+        back. Your app sees standard JSON — no TOON awareness needed.
+      </p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-icon">📥</div>
+          <div class="step-title">Receive request</div>
+          <div class="step-desc">
+            Your SDK sends a normal OpenAI/Anthropic request to toongate instead
+            of directly to the provider.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-icon">⚡</div>
+          <div class="step-title">Score & compress</div>
+          <div class="step-desc">
+            Eligibility scorer evaluates the payload (0–1). Uniform arrays above
+            the threshold are encoded to TOON.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-icon">🔀</div>
+          <div class="step-title">Forward upstream</div>
+          <div class="step-desc">
+            Compressed request goes to your gateway or provider. All existing
+            headers pass through untouched.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-icon">📊</div>
+          <div class="step-title">Log & return</div>
+          <div class="step-desc">
+            Response returned to your app unchanged. Savings written to D1
+            fire-and-forget — never blocks the response.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GATEWAYS -->
+    <div class="section reveal" id="gateways">
+      <div class="section-label">Gateways</div>
+      <div class="section-title">
+        Works with any gateway<br />you already use.
+      </div>
+      <p class="section-sub">
+        toongate is a transparent proxy — it speaks the same protocol as its
+        upstream.
+      </p>
+
+      <table class="gateway-table">
+        <thead>
+          <tr>
+            <th>Gateway</th>
+            <th>Status</th>
+            <th>Config</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="gw-name">OpenAI direct</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
+            <td>
+              <code class="gw-change"
+                >UPSTREAM_URL=<span>https://api.openai.com/v1</span></code
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">Anthropic direct</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
+            <td>
+              <code class="gw-change"
+                >UPSTREAM_URL=<span>https://api.anthropic.com</span></code
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">Cloudflare AI Gateway</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
+            <td>
+              <code class="gw-change"
+                >UPSTREAM_URL=<span
+                  >https://gateway.ai.cloudflare.com/...</span
+                ></code
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">Helicone</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
+            <td>
+              <code class="gw-change"
+                >UPSTREAM_URL=<span>https://oai.helicone.ai/v1</span></code
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">LiteLLM</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
+            <td>
+              <code class="gw-change"
+                >UPSTREAM_URL=<span>http://0.0.0.0:4000</span></code
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">Azure OpenAI</span></td>
+            <td><span class="status-badge status-planned">Planned</span></td>
+            <td>
+              <span style="font-size: 12px; color: var(--text3)"
+                >Coming soon</span
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">Google Gemini</span></td>
+            <td><span class="status-badge status-planned">Planned</span></td>
+            <td>
+              <span style="font-size: 12px; color: var(--text3)"
+                >Coming soon</span
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SDK SECTION -->
+    <div class="section reveal">
+      <div class="section-label">SDKs</div>
+      <div class="section-title">3 SDKs.<br />Same one-line change.</div>
+      <p class="section-sub">
+        No new methods to learn. Just swap the baseURL — everything else stays
+        the same.
+      </p>
+
+      <div class="code-tabs">
+        <button class="code-tab active" onclick="switchLang('ts')">
+          TypeScript
+        </button>
+        <button class="code-tab" onclick="switchLang('py')">Python</button>
+        <button class="code-tab" onclick="switchLang('go')">Go</button>
+      </div>
+      <div class="code-wrap">
+        <div class="code-pane active" id="lang-ts">
+          <pre><span class="ck">import</span> OpenAI <span class="ck">from</span> <span class="cs">"openai"</span>
+
+<span class="ck">const</span> openai = <span class="ck">new</span> <span class="cf">OpenAI</span>({
+  baseURL: <span class="cs">"https://toongate.workers.dev/v1"</span>,
+  <span class="cm">// apiKey injected by toongate from OPENAI_API_KEY env</span>
+})
+
+<span class="cm">// Use exactly as before — streaming, tools, everything works</span>
+<span class="ck">const</span> res = <span class="ck">await</span> openai.chat.completions.<span class="cf">create</span>({
+  model: <span class="cs">"gpt-4o"</span>,
+  messages: [{ role: <span class="cs">"user"</span>, content: myRagChunks }],
+})
+
+<span class="cm">// Check savings in response headers:</span>
+<span class="cm">// x-toongate-tokens-saved: 569</span>
+<span class="cm">// x-toongate-compressed: true</span></pre>
+        </div>
+        <div class="code-pane" id="lang-py">
+          <pre><span class="ck">from</span> openai <span class="ck">import</span> OpenAI
+
+client = <span class="cf">OpenAI</span>(
+    base_url=<span class="cs">"https://toongate.workers.dev/v1"</span>
+)
+
+response = client.chat.completions.<span class="cf">create</span>(
+    model=<span class="cs">"gpt-4o"</span>,
+    messages=[{<span class="cs">"role"</span>: <span class="cs">"user"</span>, <span class="cs">"content"</span>: rag_chunks}]
+)
+
+<span class="cm"># Savings logged to D1 automatically</span></pre>
+        </div>
+        <div class="code-pane" id="lang-go">
+          <pre><span class="ck">import</span> <span class="cs">"github.com/sashabaranov/go-openai"</span>
+
+config := openai.<span class="cf">DefaultConfig</span>(os.<span class="cf">Getenv</span>(<span class="cs">"OPENAI_API_KEY"</span>))
+config.BaseURL = <span class="cs">"https://toongate.workers.dev/v1"</span>
+
+client := openai.<span class="cf">NewClientWithConfig</span>(config)
+
+resp, _ := client.<span class="cf">CreateChatCompletion</span>(ctx,
+    openai.ChatCompletionRequest{
+        Model:    openai.GPT4o,
+        Messages: messages,
+    },
+)</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRICING -->
+    <div class="section reveal" id="pricing">
+      <div class="section-label">Pricing</div>
+      <div class="section-title">Open source.<br />Zero cost to self-host.</div>
+      <p class="section-sub">
+        toongate is MIT licensed and runs on Cloudflare's free tier. Managed
+        hosting coming soon.
+      </p>
+
+      <div class="pricing-grid">
+        <div class="price-card">
+          <div class="plan-tier">Open Source</div>
+          <div class="plan-price-num">$0</div>
+          <div class="plan-mo">forever · self-hosted</div>
+          <div class="plan-divider"></div>
+          <ul class="plan-items">
+            <li>Full source on GitHub</li>
+            <li>Cloudflare Workers + D1</li>
+            <li>All gateways included</li>
+            <li>Savings log & REST API</li>
+            <li>MIT license</li>
+          </ul>
+          <a
+            href="https://github.com/anuwatthisuka/toongate"
+            class="plan-btn plan-btn-outline"
+            >View on GitHub</a
+          >
+        </div>
+
+        <div class="price-card featured">
+          <div class="plan-tier">Managed</div>
+          <div class="plan-price-num"><sup>$</sup>19</div>
+          <div class="plan-mo">per month · coming soon</div>
+          <div class="plan-divider"></div>
+          <ul class="plan-items">
+            <li>Deploy in 30 seconds</li>
+            <li>No Cloudflare account needed</li>
+            <li>Savings dashboard UI</li>
+            <li>Email alerts on high spend</li>
+            <li>Priority support</li>
+          </ul>
+          <a href="#waitlist" class="plan-btn plan-btn-filled">Join waitlist</a>
+        </div>
+
+        <div class="price-card">
+          <div class="plan-tier">Enterprise</div>
+          <div class="plan-price-num" style="font-size: 28px; padding-top: 6px">
+            Custom
+          </div>
+          <div class="plan-mo">contact us</div>
+          <div class="plan-divider"></div>
+          <ul class="plan-items">
+            <li>Private deployment</li>
+            <li>SLA guarantee</li>
+            <li>Custom retention policy</li>
+            <li>Webhook + Slack alerts</li>
+            <li>Dedicated support</li>
+          </ul>
+          <a href="mailto:hello@toongate.dev" class="plan-btn plan-btn-outline"
+            >Contact us</a
+          >
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-section reveal" id="waitlist">
+      <h2>Start saving on<br />every LLM request.</h2>
+      <p>
+        Join the waitlist for managed hosting — free 3-month trial for early
+        users.
+      </p>
+      <div class="email-row">
+        <input class="email-input" type="email" placeholder="you@company.com" />
+        <button class="email-submit" onclick="handleJoin()">
+          Join waitlist →
+        </button>
+      </div>
+      <p style="font-size: 12px; color: var(--text3); margin-top: 14px">
+        No spam. Self-hosted version available now on GitHub.
+      </p>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="footer-logo">toon<span>gate</span></div>
+      <div class="footer-links">
+        <a href="#">Docs</a>
+        <a href="https://github.com/anuwatthisuka/toongate">GitHub</a>
+        <a href="https://toonformat.dev">TOON format</a>
+        <a href="mailto:hello@toongate.dev">Contact</a>
+      </div>
+      <div class="footer-note">Built on Cloudflare Workers · MIT license</div>
+    </footer>
+
+    <script>
+      // Reveal on scroll
+      const obs = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) e.target.classList.add("vis");
+          });
+        },
+        { threshold: 0.08 },
+      );
+      document.querySelectorAll(".reveal").forEach((el) => obs.observe(el));
+
+      // SDK tabs
+      function switchLang(lang) {
+        document.querySelectorAll(".code-tab").forEach((t, i) => {
+          t.classList.toggle("active", ["ts", "py", "go"][i] === lang);
+        });
+        document
+          .querySelectorAll(".code-pane")
+          .forEach((p) => p.classList.remove("active"));
+        document.getElementById("lang-" + lang).classList.add("active");
+      }
+
+      // Waitlist
+      function handleJoin() {
+        const inp = document.querySelector(".email-input");
+        const btn = document.querySelector(".email-submit");
+        if (!inp.value.includes("@")) {
+          inp.style.outline = "1px solid #f87171";
+          setTimeout(() => (inp.style.outline = ""), 1500);
+          return;
+        }
+        btn.textContent = "You're in ✓";
+        btn.style.background = "var(--green)";
+        btn.style.color = "#000";
+        inp.disabled = true;
+        btn.disabled = true;
+      }
+    </script>
+  </body>
+</html>
