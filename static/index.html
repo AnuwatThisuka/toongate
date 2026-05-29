@@ -24,15 +24,15 @@
         --bg1: #0a0a0a;
         --bg2: #111;
         --bg3: #1a1a1a;
-        --border: rgba(255, 255, 255, 0.08);
-        --border2: rgba(255, 255, 255, 0.14);
+        --border: rgba(255, 255, 255, 0.06);
+        --border2: rgba(255, 255, 255, 0.1);
         --text: #ededed;
-        --text2: #a1a1a1;
-        --text3: #666;
+        --text2: #888;
+        --text3: #444;
         --white: #fff;
-        --green: #00c853;
-        --green-dim: rgba(0, 200, 83, 0.1);
-        --green-border: rgba(0, 200, 83, 0.2);
+        --green: #50e3c2;
+        --green-dim: rgba(80, 227, 194, 0.07);
+        --green-border: rgba(80, 227, 194, 0.18);
         --blue: #0070f3;
         --orange: #f97316;
         --mono: "Geist Mono", monospace;
@@ -179,7 +179,7 @@
         height: 400px;
         background: radial-gradient(
           ellipse,
-          rgba(0, 200, 83, 0.07) 0%,
+          rgba(80, 227, 194, 0.06) 0%,
           transparent 65%
         );
         pointer-events: none;
@@ -856,137 +856,6 @@
         font-size: 11px;
       }
 
-      /* PRICING */
-      .pricing-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-      }
-
-      .price-card {
-        background: var(--bg1);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 28px;
-        position: relative;
-      }
-
-      .price-card.featured {
-        border-color: rgba(0, 200, 83, 0.3);
-        background: linear-gradient(
-          180deg,
-          rgba(0, 200, 83, 0.04) 0%,
-          var(--bg1) 100%
-        );
-      }
-
-      .price-card.featured::before {
-        content: "Most popular";
-        position: absolute;
-        top: -1px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--green);
-        color: #000;
-        font-size: 10px;
-        font-weight: 600;
-        padding: 3px 12px;
-        border-radius: 0 0 6px 6px;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      .plan-tier {
-        font-size: 12px;
-        color: var(--text3);
-        font-family: var(--mono);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 12px;
-      }
-
-      .plan-price-num {
-        font-size: 40px;
-        font-weight: 600;
-        color: var(--white);
-        letter-spacing: -0.04em;
-        line-height: 1;
-      }
-
-      .plan-price-num sup {
-        font-size: 20px;
-        vertical-align: super;
-      }
-
-      .plan-mo {
-        font-size: 12px;
-        color: var(--text3);
-        margin-bottom: 24px;
-        margin-top: 4px;
-      }
-
-      .plan-divider {
-        height: 1px;
-        background: var(--border);
-        margin-bottom: 20px;
-      }
-
-      .plan-items {
-        list-style: none;
-        display: flex;
-        flex-direction: column;
-        gap: 9px;
-        margin-bottom: 24px;
-      }
-
-      .plan-items li {
-        font-size: 13px;
-        color: var(--text2);
-        display: flex;
-        gap: 8px;
-        align-items: flex-start;
-      }
-
-      .plan-items li::before {
-        content: "✓";
-        color: var(--green);
-        font-size: 12px;
-        margin-top: 1px;
-        flex-shrink: 0;
-      }
-
-      .plan-btn {
-        display: block;
-        text-align: center;
-        padding: 10px;
-        border-radius: 7px;
-        font-size: 13px;
-        font-weight: 500;
-        text-decoration: none;
-        transition: all 0.15s;
-        font-family: var(--sans);
-      }
-
-      .plan-btn-outline {
-        border: 1px solid var(--border2);
-        color: var(--text2);
-      }
-
-      .plan-btn-outline:hover {
-        color: var(--text);
-        border-color: rgba(255, 255, 255, 0.3);
-      }
-
-      .plan-btn-filled {
-        background: var(--white);
-        color: #000;
-      }
-
-      .plan-btn-filled:hover {
-        opacity: 0.88;
-      }
-
       /* CTA */
       .cta-section {
         margin: 0 24px 80px;
@@ -1009,7 +878,7 @@
         height: 200px;
         background: radial-gradient(
           ellipse,
-          rgba(0, 200, 83, 0.07),
+          rgba(80, 227, 194, 0.06),
           transparent 70%
         );
         pointer-events: none;
@@ -1042,7 +911,7 @@
       }
 
       .email-row:focus-within {
-        border-color: rgba(0, 200, 83, 0.4);
+        border-color: rgba(80, 227, 194, 0.25);
       }
 
       .email-input {
@@ -1171,10 +1040,6 @@
           grid-template-columns: 1fr 1fr;
         }
 
-        .pricing-grid {
-          grid-template-columns: 1fr;
-        }
-
         .stats-row {
           flex-direction: column;
         }
@@ -1201,6 +1066,77 @@
           margin: 0 16px 60px;
         }
       }
+
+      /* ── Terminal block ── */
+      .term-block {
+        margin-top: 48px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: #0a0a0a;
+        width: max-content;
+        align-self: stretch;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .term-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        background: #111;
+        border-bottom: 1px solid var(--border);
+      }
+      .term-body {
+        padding: 18px 20px;
+        min-height: 160px;
+        color: #ccc;
+        text-align: left;
+      }
+      .term-line {
+        display: block;
+        white-space: pre;
+      }
+      .term-cursor {
+        display: inline-block;
+        width: 8px;
+        height: 14px;
+        background: var(--green);
+        vertical-align: middle;
+        margin-left: 2px;
+        animation: blink 1s step-end infinite;
+      }
+      .t-prompt {
+        color: var(--green);
+      }
+      .t-cmd {
+        color: #fff;
+      }
+      .t-muted {
+        color: #555;
+      }
+      .t-dim {
+        color: #777;
+      }
+      .t-bold {
+        color: #fff;
+        font-weight: 600;
+      }
+      .t-green {
+        color: var(--green);
+      }
+      .t-bar {
+        color: var(--green);
+      }
+      .t-warn {
+        color: #f59e0b;
+      }
+
+      /* counter animation */
+      .stat-num[data-target] {
+        transition: color 0.3s;
+      }
     </style>
   </head>
 
@@ -1211,7 +1147,6 @@
       <div class="nav-center">
         <a href="#how" class="nav-link">How it works</a>
         <a href="#gateways" class="nav-link">Gateways</a>
-        <a href="#pricing" class="nav-link">Pricing</a>
         <a href="#" class="nav-link">Docs</a>
       </div>
       <div class="nav-right">
@@ -1264,40 +1199,17 @@
           View on GitHub
         </a>
       </div>
-
-      <div class="diff-block">
-        <div class="diff-header">
-          <div class="diff-dots">
-            <div class="diff-dot diff-dot-r"></div>
-            <div class="diff-dot diff-dot-y"></div>
-            <div class="diff-dot diff-dot-g"></div>
+      <div style="width: max-content">
+        <div class="term-block" id="termBlock">
+          <div class="term-header">
+            <div class="diff-dots">
+              <div class="diff-dot diff-dot-r"></div>
+              <div class="diff-dot diff-dot-y"></div>
+              <div class="diff-dot diff-dot-g"></div>
+            </div>
+            <span class="diff-filename">toongate compress</span>
           </div>
-          <span class="diff-filename">app.ts</span>
-          <span class="diff-badge">1 line changed</span>
-        </div>
-        <div class="diff-body">
-          <div class="diff-ctx">
-            <span class="ck">const</span> openai = <span class="ck">new</span>
-            <span class="cf">OpenAI</span>({'{'}
-          </div>
-          <div class="diff-rem">
-            &nbsp;&nbsp;baseURL:
-            <span class="diff-str-rem"
-              >"https://gateway.ai.cloudflare.com/v1/..."</span
-            >,
-          </div>
-          <div class="diff-add">
-            &nbsp;&nbsp;baseURL:
-            <span class="diff-str">"https://toongate.workers.dev/v1"</span
-            >,&nbsp;&nbsp;<span class="cm">// that's it</span>
-          </div>
-          <div class="diff-ctx">{'}'});</div>
-          <div
-            class="diff-comment"
-            style="margin-top: 8px; color: #4b5563; font-style: italic"
-          >
-            // All gateway headers still pass through untouched
-          </div>
+          <div class="term-body" id="termBody"></div>
         </div>
       </div>
     </section>
@@ -1305,22 +1217,28 @@
     <!-- STATS -->
     <div
       class="stats-row reveal"
-      style="max-width: 760px; margin: 0 auto 0; padding: 0 24px 100px"
+      style="max-width: 760px; margin: 0 auto 0; padding: 0 24px"
     >
       <div class="stat">
-        <span class="stat-num">40<span class="unit">%</span></span>
+        <span class="stat-num" data-target="40" data-suffix="%">0%</span>
         <div class="stat-lbl">fewer tokens on RAG pipelines</div>
       </div>
       <div class="stat">
-        <span class="stat-num">&lt;1<span class="unit">ms</span></span>
+        <span
+          class="stat-num"
+          data-target="1"
+          data-prefix="&lt;"
+          data-suffix="ms"
+          >&lt;1ms</span
+        >
         <div class="stat-lbl">overhead per request</div>
       </div>
       <div class="stat">
-        <span class="stat-num">0</span>
+        <span class="stat-num" data-target="0">0</span>
         <div class="stat-lbl">SDK changes required</div>
       </div>
       <div class="stat">
-        <span class="stat-num">6<span class="unit">+</span></span>
+        <span class="stat-num" data-target="6" data-suffix="+">0+</span>
         <div class="stat-lbl">gateways supported</div>
       </div>
     </div>
@@ -1355,7 +1273,7 @@
         <div class="ba-arrow">→</div>
 
         <div>
-          <div class="ba-card" style="border-color: rgba(0, 200, 83, 0.2)">
+          <div class="ba-card" style="border-color: rgba(80, 227, 194, 0.15)">
             <div class="ba-header">
               <span class="ba-title">TOON (after)</span>
               <span class="ba-tokens ba-tokens-good"
@@ -1411,7 +1329,11 @@
       <div class="steps">
         <div class="step">
           <div class="step-num">01</div>
-          <div class="step-icon">📥</div>
+          <div class="step-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
           <div class="step-title">Receive request</div>
           <div class="step-desc">
             Your SDK sends a normal OpenAI/Anthropic request to toongate instead
@@ -1420,7 +1342,12 @@
         </div>
         <div class="step">
           <div class="step-num">02</div>
-          <div class="step-icon">⚡</div>
+          <div class="step-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="13 2 13 9 20 9"/><polygon points="22 12 13 2 2 12 2 22 22 22"/>
+              <path d="M9 22v-6h6v6"/>
+            </svg>
+          </div>
           <div class="step-title">Score & compress</div>
           <div class="step-desc">
             Eligibility scorer evaluates the payload (0–1). Uniform arrays above
@@ -1429,7 +1356,11 @@
         </div>
         <div class="step">
           <div class="step-num">03</div>
-          <div class="step-icon">🔀</div>
+          <div class="step-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </div>
           <div class="step-title">Forward upstream</div>
           <div class="step-desc">
             Compressed request goes to your gateway or provider. All existing
@@ -1438,7 +1369,11 @@
         </div>
         <div class="step">
           <div class="step-num">04</div>
-          <div class="step-icon">📊</div>
+          <div class="step-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+          </div>
           <div class="step-title">Log & return</div>
           <div class="step-desc">
             Response returned to your app unchanged. Savings written to D1
@@ -1604,71 +1539,6 @@ resp, _ := client.<span class="cf">CreateChatCompletion</span>(ctx,
       </div>
     </div>
 
-    <!-- PRICING -->
-    <div class="section reveal" id="pricing">
-      <div class="section-label">Pricing</div>
-      <div class="section-title">Open source.<br />Zero cost to self-host.</div>
-      <p class="section-sub">
-        toongate is MIT licensed and runs on Cloudflare's free tier. Managed
-        hosting coming soon.
-      </p>
-
-      <div class="pricing-grid">
-        <div class="price-card">
-          <div class="plan-tier">Open Source</div>
-          <div class="plan-price-num">$0</div>
-          <div class="plan-mo">forever · self-hosted</div>
-          <div class="plan-divider"></div>
-          <ul class="plan-items">
-            <li>Full source on GitHub</li>
-            <li>Cloudflare Workers + D1</li>
-            <li>All gateways included</li>
-            <li>Savings log & REST API</li>
-            <li>MIT license</li>
-          </ul>
-          <a
-            href="https://github.com/anuwatthisuka/toongate"
-            class="plan-btn plan-btn-outline"
-            >View on GitHub</a
-          >
-        </div>
-
-        <div class="price-card featured">
-          <div class="plan-tier">Managed</div>
-          <div class="plan-price-num"><sup>$</sup>19</div>
-          <div class="plan-mo">per month · coming soon</div>
-          <div class="plan-divider"></div>
-          <ul class="plan-items">
-            <li>Deploy in 30 seconds</li>
-            <li>No Cloudflare account needed</li>
-            <li>Savings dashboard UI</li>
-            <li>Email alerts on high spend</li>
-            <li>Priority support</li>
-          </ul>
-          <a href="#waitlist" class="plan-btn plan-btn-filled">Join waitlist</a>
-        </div>
-
-        <div class="price-card">
-          <div class="plan-tier">Enterprise</div>
-          <div class="plan-price-num" style="font-size: 28px; padding-top: 6px">
-            Custom
-          </div>
-          <div class="plan-mo">contact us</div>
-          <div class="plan-divider"></div>
-          <ul class="plan-items">
-            <li>Private deployment</li>
-            <li>SLA guarantee</li>
-            <li>Custom retention policy</li>
-            <li>Webhook + Slack alerts</li>
-            <li>Dedicated support</li>
-          </ul>
-          <a href="mailto:hello@toongate.dev" class="plan-btn plan-btn-outline"
-            >Contact us</a
-          >
-        </div>
-      </div>
-    </div>
-
     <!-- CTA -->
     <div class="cta-section reveal" id="waitlist">
       <h2>Start saving on<br />every LLM request.</h2>
@@ -1721,6 +1591,132 @@ resp, _ := client.<span class="cf">CreateChatCompletion</span>(ctx,
           .forEach((p) => p.classList.remove("active"));
         document.getElementById("lang-" + lang).classList.add("active");
       }
+
+      // ── Counter animation ──
+      function animateCounter(el) {
+        const target = parseInt(el.dataset.target, 10);
+        const prefix = el.dataset.prefix || "";
+        const suffix = el.dataset.suffix || "";
+        if (target === 0) return;
+        const duration = 1200;
+        const start = performance.now();
+        function tick(now) {
+          const p = Math.min((now - start) / duration, 1);
+          const ease = 1 - Math.pow(1 - p, 3);
+          el.textContent = prefix + Math.round(ease * target) + suffix;
+          if (p < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+      const statObs = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting && e.target.dataset.target !== undefined) {
+              statObs.unobserve(e.target);
+              animateCounter(e.target);
+            }
+          });
+        },
+        { threshold: 0.5 },
+      );
+      document
+        .querySelectorAll(".stat-num[data-target]")
+        .forEach((el) => statObs.observe(el));
+
+      // ── ASCII Terminal animation ──
+      const TERM_LINES = [
+        {
+          html: '<span class="t-prompt">$</span> <span class="t-cmd">toongate compress</span> <span class="t-dim">payload.json</span>',
+          delay: 0,
+        },
+        { html: "", delay: 300 },
+        {
+          html: '<span class="t-dim">  scanning messages array...</span>',
+          delay: 400,
+        },
+        {
+          html: '<span class="t-dim">  eligibility score: </span><span class="t-green">0.87</span><span class="t-dim"> (threshold 0.6 ✓)</span>',
+          delay: 700,
+        },
+        { html: "", delay: 200 },
+        {
+          html: '<span class="t-dim">  compressing  </span><span class="t-bar" id="tbar">░░░░░░░░░░░░░░░░</span> <span class="t-dim" id="tpct">0%</span>',
+          delay: 300,
+          isBar: true,
+        },
+        { html: "", delay: 700 },
+        {
+          html: '<span class="t-dim">  tokens before:  </span><span class="t-bold">3,240</span>',
+          delay: 200,
+        },
+        {
+          html: '<span class="t-dim">  tokens after:   </span><span class="t-bold">1,980</span>',
+          delay: 200,
+        },
+        {
+          html: '<span class="t-dim">  saved:          </span><span class="t-green t-bold">1,260 tokens (38.9%) ✓</span>',
+          delay: 200,
+        },
+        {
+          html: '<span class="t-dim">  usd saved:      </span><span class="t-green">$0.0025</span>',
+          delay: 200,
+        },
+        { html: "", delay: 200 },
+        {
+          html: '<span class="t-green">✓</span> <span class="t-bold">forwarding to upstream...</span>',
+          delay: 300,
+        },
+      ];
+
+      let termStarted = false;
+      function runTerminal() {
+        if (termStarted) return;
+        termStarted = true;
+        const body = document.getElementById("termBody");
+        let elapsed = 600;
+        TERM_LINES.forEach((line, i) => {
+          elapsed += line.delay;
+          setTimeout(() => {
+            const row = document.createElement("span");
+            row.className = "term-line";
+            row.innerHTML = line.html;
+            body.appendChild(row);
+            if (line.isBar) {
+              let pct = 0;
+              const barEl = document.getElementById("tbar");
+              const pctEl = document.getElementById("tpct");
+              const iv = setInterval(() => {
+                pct = Math.min(pct + 7, 100);
+                const f = Math.round((pct / 100) * 16);
+                if (barEl)
+                  barEl.textContent = "▓".repeat(f) + "░".repeat(16 - f);
+                if (pctEl) pctEl.textContent = pct + "%";
+                if (pct >= 100) clearInterval(iv);
+              }, 40);
+            }
+            const cur = body.querySelector(".term-cursor");
+            if (cur) cur.remove();
+            if (i < TERM_LINES.length - 1) {
+              const cursor = document.createElement("span");
+              cursor.className = "term-cursor";
+              body.appendChild(cursor);
+            }
+          }, elapsed);
+        });
+      }
+      const termObs = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              termObs.disconnect();
+              runTerminal();
+            }
+          });
+        },
+        { threshold: 0.3 },
+      );
+      const termBlock = document.getElementById("termBlock");
+      if (termBlock) termObs.observe(termBlock);
 
       // Waitlist
       function handleJoin() {
