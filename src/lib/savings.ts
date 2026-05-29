@@ -7,7 +7,7 @@ interface WaitContext {
 export function writeSavings(
   db: D1Database,
   row: SavingsRow,
-  ctx?: WaitContext,
+  ctx: WaitContext,
 ): void {
   const promise = db
     .prepare(
@@ -27,7 +27,5 @@ export function writeSavings(
     )
     .run();
 
-  if (ctx) {
-    ctx.waitUntil(promise);
-  }
+  ctx.waitUntil(promise);
 }

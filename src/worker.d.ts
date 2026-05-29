@@ -10,6 +10,7 @@ interface Env {
   TOON_THRESHOLD_EMBEDDINGS: string;
   TOON_LOG_SAVINGS: string;
   TOON_DRY_RUN: string;
+  UPSTREAM_TIMEOUT_MS: string;
   DB: D1Database;
   CF_AIG_TOKEN: string;
 }
