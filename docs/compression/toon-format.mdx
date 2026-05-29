@@ -1,0 +1,83 @@
+---
+title: TOON Format
+description: How the TOON encoding works and why LLMs understand it natively.
+---
+
+## What is TOON?
+
+TOON (Tabular Object Notation) is a compact encoding for uniform arrays of objects. It is designed specifically for token-efficient LLM input — the model reads TOON-encoded data as naturally as JSON, but with significantly fewer tokens.
+
+toongate uses the [`@toon-format/toon`](https://toonformat.dev) encoder to convert eligible payloads automatically.
+
+---
+
+## The encoding
+
+A standard JSON array repeats field names for every row:
+
+```json
+[
+  {"id": 1, "name": "Alice", "score": 0.91},
+  {"id": 2, "name": "Bob",   "score": 0.87},
+  {"id": 3, "name": "Carol", "score": 0.79}
+]
+```
+
+TOON hoists the field names into a single header and encodes each row as pipe-delimited values:
+
+```
+{id,name,score}[3]
+1|Alice|0.91
+2|Bob|0.87
+3|Carol|0.79
+```
+
+The `{fields}` header names the columns. The `[N]` suffix is an explicit row count — it gives the model a clear schema boundary and prevents hallucinated row counts.
+
+---
+
+## Token savings
+
+JSON repeats field names (`"id"`, `"name"`, `"score"`) once per row. With 100 rows, you pay for those tokens 100 times. TOON pays for them once.
+
+| Rows | JSON tokens (est.) | TOON tokens (est.) | Savings |
+|---|---|---|---|
+| 3 | 38 | 22 | 42% |
+| 10 | 120 | 60 | 50% |
+| 50 | 580 | 260 | 55% |
+| 100 | 1160 | 510 | 56% |
+
+Savings increase with row count because the TOON header is a fixed cost shared across all rows.
+
+---
+
+## Model compatibility
+
+LLMs understand TOON natively. The format is unambiguous:
+
+- `{field1,field2,field3}` defines the schema
+- `[N]` states the exact row count
+- Each row is `value1|value2|value3` in the same column order
+
+[Benchmarks on the toonformat.dev site](https://toonformat.dev/guide/benchmarks.html) show slightly higher task accuracy (76.4% vs 75.0%) with TOON vs JSON, because the explicit schema reduces ambiguity.
+
+---
+
+## What TOON does not encode
+
+TOON only helps with uniform arrays. It does not encode:
+
+- Free-form text strings
+- Single objects (no rows to amortize the header)
+- Deeply nested or non-uniform objects
+- Already-serialized strings
+
+These pass through unchanged. toongate uses [eligibility scoring](/docs/compression/eligibility-scoring) to decide which parts of the payload to encode.
+
+---
+
+## Decoding
+
+toongate decodes TOON back to JSON before returning the response to your app. Your app always receives standard JSON — it never needs to know TOON exists.
+
+For streaming responses (`stream: true`), decoding happens after the stream completes: toongate buffers the TOON segment, decodes it, and re-emits the final delta as standard JSON.

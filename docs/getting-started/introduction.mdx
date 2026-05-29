@@ -1,0 +1,107 @@
+---
+title: Introduction
+description: Active compression layer for LLM pipelines — cut token costs up to 40% with one line change.
+---
+
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.png"
+  alt="toongate diagram"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.png"
+  alt="toongate diagram"
+/>
+
+## What is toongate?
+
+toongate sits in front of any LLM gateway and compresses structured data in your prompts before it reaches your provider — then passes the response back unchanged.
+
+Your app never knows it happened.
+
+```diff
+- const openai = new OpenAI({
+-   baseURL: "https://gateway.ai.cloudflare.com/v1/{account}/{gateway}/openai",
+- });
++ const openai = new OpenAI({
++   baseURL: "https://toongate.workers.dev/v1",
++ });
+```
+
+One `baseURL` change. No new headers. No SDK changes. Every gateway feature you already rely on keeps working.
+
+---
+
+## How it saves tokens
+
+toongate uses the [TOON format](https://toonformat.dev) to encode uniform arrays of objects — the kind that repeat field names for every row.
+
+<CardGroup cols={2}>
+  <Card title="Before (JSON)" icon="file-code">
+    ```json
+    [
+      {"id": 1, "name": "Alice", "score": 0.91},
+      {"id": 2, "name": "Bob",   "score": 0.87},
+      {"id": 3, "name": "Carol", "score": 0.79}
+    ]
+    ```
+    **~38 tokens**
+  </Card>
+  <Card title="After (TOON)" icon="bolt">
+    ```
+    {id,name,score}[3]
+    1|Alice|0.91
+    2|Bob|0.87
+    3|Carol|0.79
+    ```
+    **~22 tokens — 42% fewer**
+  </Card>
+</CardGroup>
+
+Free-form text, deeply nested configs, and anything that doesn't compress well passes through unchanged. toongate only encodes when it helps.
+
+---
+
+## What you get
+
+<CardGroup cols={2}>
+  <Card title="Sub-millisecond overhead" icon="gauge-high">
+    Compression runs in the Worker before forwarding. Adds ~0.5ms to your request — invisible in practice.
+  </Card>
+  <Card title="Any gateway, untouched" icon="router">
+    Helicone, CF AI Gateway, LiteLLM, direct OpenAI/Anthropic — all gateway headers pass through unchanged.
+  </Card>
+  <Card title="Real-time savings log" icon="chart-line">
+    Every request writes tokens_before, tokens_after, usd_saved to D1. Query it anytime via REST or Wrangler.
+  </Card>
+  <Card title="Zero infra to manage" icon="cloud">
+    Runs on Cloudflare Workers globally. No servers. No Redis. No ops overhead.
+  </Card>
+</CardGroup>
+
+---
+
+## Compression at a glance
+
+| Payload type | Savings | Example |
+|---|---|---|
+| Uniform array of objects | **~40%** | RAG chunks, DB rows, product catalogs |
+| Mixed structured data | ~20–30% | Tables + nested objects |
+| Free-form text | 0% (pass-through) | Q&A, summaries, creative prompts |
+| Deeply nested JSON | 0% (pass-through) | Complex config objects |
+
+Accuracy is slightly _higher_ with TOON — explicit length markers give models a clearer schema. See [benchmarks](https://toonformat.dev/guide/benchmarks.html).
+
+---
+
+## Ready to start?
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/docs/getting-started/quickstart">
+    Deploy toongate and make your first compressed request in under 5 minutes.
+  </Card>
+  <Card title="How it works" icon="circle-info" href="/docs/getting-started/how-it-works">
+    Understand the compression pipeline, eligibility scoring, and fallback behavior.
+  </Card>
+</CardGroup>

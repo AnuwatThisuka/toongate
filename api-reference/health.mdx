@@ -1,0 +1,30 @@
+---
+title: "GET /health"
+api: "GET https://toongate.workers.dev/health"
+description: Returns the health status of the toongate worker.
+---
+
+## Response
+
+<ResponseField name="ok" type="boolean">
+  `true` when the worker is running and accepting requests.
+</ResponseField>
+
+<ResponseField name="version" type="string">
+  The deployed toongate version string (e.g. `"0.1.0"`).
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/health
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "ok": true,
+  "version": "0.1.0"
+}
+```
+</ResponseExample>

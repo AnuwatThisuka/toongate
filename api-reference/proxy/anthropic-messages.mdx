@@ -1,0 +1,74 @@
+---
+title: "POST /v1/messages"
+api: "POST https://toongate.workers.dev/v1/messages"
+description: Anthropic Messages API with automatic TOON compression.
+---
+
+## Overview
+
+Proxies to the Anthropic Messages API (`https://api.anthropic.com/v1/messages`). toongate compresses uniform arrays in `messages[].content` before forwarding and decodes any TOON in the response.
+
+## Authorization
+
+<ParamField header="x-api-key" type="string">
+  Anthropic API key. toongate injects `ANTHROPIC_API_KEY` automatically — you may omit this header.
+</ParamField>
+
+## Request body
+
+The request body follows the [Anthropic Messages API spec](https://docs.anthropic.com/en/api/messages). All fields pass through.
+
+<ParamField body="model" type="string" required>
+  Anthropic model ID (e.g. `claude-opus-4-5`, `claude-haiku-3-5`).
+</ParamField>
+
+<ParamField body="messages" type="array" required>
+  Array of message objects. `content` fields containing uniform arrays of objects are eligible for TOON compression.
+</ParamField>
+
+<ParamField body="max_tokens" type="number" required>
+  Maximum tokens in the response.
+</ParamField>
+
+<ParamField body="stream" type="boolean">
+  When `true`, returns SSE events. toongate compresses the request and streams chunks back unchanged.
+</ParamField>
+
+## Response headers
+
+| Header | Description |
+|---|---|
+| `X-Toongate-Compressed` | `true` if the request payload was compressed |
+| `X-Toongate-Tokens-Before` | Estimated token count before compression |
+| `X-Toongate-Tokens-After` | Estimated token count after compression |
+| `X-Toongate-Tokens-Saved` | Tokens saved |
+| `X-Toongate-Eligibility-Score` | Eligibility score (0–1) |
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "claude-haiku-3-5",
+    "max_tokens": 1024,
+    "messages": [
+      { "role": "user", "content": "Hello, Claude" }
+    ]
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "id": "msg_...",
+  "type": "message",
+  "role": "assistant",
+  "content": [{ "type": "text", "text": "Hello! How can I help you today?" }],
+  "model": "claude-haiku-3-5",
+  "stop_reason": "end_turn",
+  "usage": { "input_tokens": 10, "output_tokens": 12 }
+}
+```
+</ResponseExample>

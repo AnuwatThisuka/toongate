@@ -1,0 +1,196 @@
+---
+title: Quickstart
+description: Deploy toongate and make your first compressed request in under 5 minutes.
+---
+
+## Prerequisites
+
+- Node.js 18+
+- A Cloudflare account (free tier works)
+- An OpenAI or Anthropic API key
+
+---
+
+## 1. Clone and install
+
+```bash
+git clone https://github.com/anuwatthisuka/toongate
+cd toongate
+npm install
+```
+
+---
+
+## 2. Create the D1 database
+
+```bash
+npx wrangler d1 create toongate-savings
+```
+
+Copy the `database_id` from the output and paste it into `wrangler.jsonc`:
+
+```jsonc wrangler.jsonc
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "toongate-savings",
+    "database_id": "<paste-id-here>",  // ← replace this
+    "migrations_dir": "migrations"
+  }
+]
+```
+
+---
+
+## 3. Set your secrets
+
+```bash
+cp .dev.vars.example .dev.vars
+```
+
+Open `.dev.vars` and fill in at minimum:
+
+```bash .dev.vars
+UPSTREAM_URL=https://api.openai.com/v1
+OPENAI_API_KEY=sk-...
+```
+
+<Tip>
+  If you're using a gateway like Cloudflare AI Gateway or Helicone, set `UPSTREAM_URL` to your gateway's base URL instead. toongate forwards all existing gateway headers untouched.
+</Tip>
+
+---
+
+## 4. Run locally
+
+```bash
+npm run db:migrate:local
+npm run dev
+```
+
+toongate is now running at `http://localhost:8787`.
+
+---
+
+## 5. Make your first request
+
+Point your OpenAI SDK at toongate instead of your gateway:
+
+<CodeGroup>
+  ```typescript TypeScript
+  import OpenAI from "openai";
+
+  const openai = new OpenAI({
+    baseURL: "http://localhost:8787/v1",
+    apiKey: "sk-...",  // your key — toongate injects it for you
+  });
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Summarize these search results:",
+          },
+          {
+            type: "text",
+            // Uniform arrays like this get compressed ~40%
+            text: JSON.stringify([
+              { title: "Result 1", url: "https://...", snippet: "..." },
+              { title: "Result 2", url: "https://...", snippet: "..." },
+              { title: "Result 3", url: "https://...", snippet: "..." },
+            ]),
+          },
+        ],
+      },
+    ],
+  });
+  ```
+
+  ```python Python
+  from openai import OpenAI
+
+  client = OpenAI(
+      base_url="http://localhost:8787/v1",
+      api_key="sk-...",
+  )
+
+  response = client.chat.completions.create(
+      model="gpt-4o",
+      messages=[
+          {
+              "role": "user",
+              "content": "Summarize these results: " + json.dumps([
+                  {"title": "Result 1", "url": "https://...", "snippet": "..."},
+                  {"title": "Result 2", "url": "https://...", "snippet": "..."},
+              ])
+          }
+      ]
+  )
+  ```
+
+  ```bash cURL
+  curl http://localhost:8787/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "gpt-4o",
+      "messages": [{"role": "user", "content": "Hello"}]
+    }'
+  ```
+</CodeGroup>
+
+---
+
+## 6. Check if compression happened
+
+Every response includes debug headers:
+
+```
+X-Toongate-Compressed: true
+X-Toongate-Tokens-Before: 1420
+X-Toongate-Tokens-After: 847
+X-Toongate-Tokens-Saved: 573
+X-Toongate-Eligibility-Score: 0.82
+```
+
+If `X-Toongate-Compressed: false` — the payload was free-form text or scored below the threshold. That's expected for simple prompts.
+
+---
+
+## 7. Deploy to production
+
+```bash
+npm run db:migrate:remote
+npm run deploy
+```
+
+Then set your production secrets:
+
+```bash
+wrangler secret put OPENAI_API_KEY
+wrangler secret put ADMIN_KEY  # protects /savings and /metrics endpoints
+```
+
+Update your app's `baseURL` to the deployed Worker URL — done.
+
+---
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="What gets compressed" icon="compress" href="/docs/compression/what-gets-compressed">
+    Understand which payloads benefit most and how to structure prompts for maximum savings.
+  </Card>
+  <Card title="Savings log & API" icon="chart-bar" href="/docs/observability/savings-api">
+    Query your token savings over time via REST — no Wrangler CLI needed.
+  </Card>
+  <Card title="Gateway setup" icon="router" href="/docs/gateways/cloudflare-ai-gateway">
+    Using CF AI Gateway, Helicone, or LiteLLM? Set UPSTREAM_URL correctly.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/docs/self-hosting/configuration">
+    All environment variables — thresholds, timeouts, dry-run mode, and more.
+  </Card>
+</CardGroup>

@@ -1,0 +1,100 @@
+---
+title: "GET /savings/history"
+api: "GET https://toongate.workers.dev/savings/history"
+description: Returns paginated raw savings rows from the D1 savings log.
+authMethod: "key"
+---
+
+## Authorization
+
+<ParamField header="X-Toongate-Admin-Key" type="string" required>
+  Admin key set via `ADMIN_KEY` environment variable. Returns `404` if not configured.
+</ParamField>
+
+## Query parameters
+
+<ParamField query="limit" type="number">
+  Number of rows to return. Default: `20`. Max: `100`.
+</ParamField>
+
+<ParamField query="offset" type="number">
+  Pagination offset. Default: `0`.
+</ParamField>
+
+## Response
+
+<ResponseField name="rows" type="array">
+  Array of savings records from the D1 `savings` table.
+</ResponseField>
+
+<ResponseField name="rows[].id" type="number">
+  Auto-incrementing row ID.
+</ResponseField>
+
+<ResponseField name="rows[].ts" type="string">
+  ISO 8601 timestamp of the request.
+</ResponseField>
+
+<ResponseField name="rows[].model" type="string">
+  Model name from the request body (e.g. `gpt-4o`).
+</ResponseField>
+
+<ResponseField name="rows[].endpoint" type="string">
+  Route path (e.g. `/v1/chat/completions`).
+</ResponseField>
+
+<ResponseField name="rows[].tokens_before" type="number">
+  Estimated token count before compression.
+</ResponseField>
+
+<ResponseField name="rows[].tokens_after" type="number">
+  Estimated token count after compression.
+</ResponseField>
+
+<ResponseField name="rows[].tokens_saved" type="number">
+  `tokens_before - tokens_after`.
+</ResponseField>
+
+<ResponseField name="rows[].usd_saved" type="number">
+  Estimated cost savings in USD.
+</ResponseField>
+
+<ResponseField name="rows[].elapsed_ms" type="number">
+  Total round-trip time in milliseconds.
+</ResponseField>
+
+<ResponseField name="total" type="number">
+  Total row count in the savings table (for pagination).
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://toongate.workers.dev/savings/history?limit=5&offset=0" \
+  -H "X-Toongate-Admin-Key: your-admin-key"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "rows": [
+    {
+      "id": 18432,
+      "ts": "2025-06-01T12:34:56Z",
+      "model": "gpt-4o",
+      "endpoint": "/v1/chat/completions",
+      "tokens_before": 1420,
+      "tokens_after": 851,
+      "tokens_saved": 569,
+      "usd_saved": 0.00285,
+      "elapsed_ms": 312
+    }
+  ],
+  "total": 18432
+}
+```
+
+```json 401
+{ "error": "unauthorized" }
+```
+</ResponseExample>

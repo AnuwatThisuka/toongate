@@ -1,0 +1,114 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "toongate",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#00d4aa",
+    "light": "#00d4aa",
+    "dark": "#00d4aa",
+    "background": {
+      "dark": "#080b0f"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/anuwatthisuka/toongate"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Deploy in 5 min",
+    "url": "https://github.com/anuwatthisuka/toongate#setup"
+  },
+  "tabs": [
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/anuwatthisuka/toongate"
+    },
+    {
+      "name": "TOON Format",
+      "icon": "book-open",
+      "url": "https://toonformat.dev"
+    },
+    {
+      "name": "Community",
+      "icon": "discord",
+      "url": "https://discord.gg/toongate"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Get Started",
+      "pages": [
+        "docs/getting-started/introduction",
+        "docs/getting-started/quickstart",
+        "docs/getting-started/how-it-works"
+      ]
+    },
+    {
+      "group": "Compression",
+      "pages": [
+        "docs/compression/what-gets-compressed",
+        "docs/compression/toon-format",
+        "docs/compression/eligibility-scoring",
+        "docs/compression/dry-run-mode"
+      ]
+    },
+    {
+      "group": "Gateways",
+      "pages": [
+        "docs/gateways/openai",
+        "docs/gateways/anthropic",
+        "docs/gateways/cloudflare-ai-gateway",
+        "docs/gateways/helicone",
+        "docs/gateways/litellm",
+        "docs/gateways/azure-openai",
+        "docs/gateways/google-gemini"
+      ]
+    },
+    {
+      "group": "Observability",
+      "pages": [
+        "docs/observability/savings-log",
+        "docs/observability/debug-headers",
+        "docs/observability/savings-api",
+        "docs/observability/prometheus"
+      ]
+    },
+    {
+      "group": "Self-hosting",
+      "pages": [
+        "docs/self-hosting/deploy-to-cloudflare",
+        "docs/self-hosting/configuration",
+        "docs/self-hosting/migrations",
+        "docs/self-hosting/reliability"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/proxy/openai-chat",
+        "api-reference/proxy/openai-embeddings",
+        "api-reference/proxy/anthropic-messages",
+        "api-reference/savings/summary",
+        "api-reference/savings/history",
+        "api-reference/savings/by-model",
+        "api-reference/health"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/anuwatthisuka/toongate"
+  }
+}

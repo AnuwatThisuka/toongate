@@ -1,0 +1,46 @@
+---
+title: OpenAI
+description: Use toongate with OpenAI direct or any OpenAI-compatible endpoint.
+---
+
+## Direct OpenAI
+
+```bash
+UPSTREAM_URL=https://api.openai.com/v1
+OPENAI_API_KEY=sk-proj-...
+```
+
+```typescript
+const openai = new OpenAI({
+  baseURL: "https://toongate.workers.dev/v1",
+});
+```
+
+Supported routes: `POST /v1/chat/completions`, `POST /v1/embeddings`.
+
+---
+
+## OpenAI-compatible endpoints
+
+Any endpoint that speaks the OpenAI protocol works — just set `UPSTREAM_URL`:
+
+```bash
+# Together AI
+UPSTREAM_URL=https://api.together.xyz/v1
+OPENAI_API_KEY=<together-key>
+
+# Groq
+UPSTREAM_URL=https://api.groq.com/openai/v1
+OPENAI_API_KEY=<groq-key>
+
+# Local Ollama
+UPSTREAM_URL=http://localhost:11434/v1
+# OPENAI_API_KEY not required for Ollama
+```
+
+---
+
+## Notes
+
+- toongate strips `/v1` from incoming paths before appending to `UPSTREAM_URL`, so `UPSTREAM_URL` must end in `/v1`
+- The `Authorization: Bearer` header is injected automatically from `OPENAI_API_KEY` — don't pass it from your SDK

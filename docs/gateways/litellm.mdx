@@ -1,0 +1,84 @@
+---
+title: LiteLLM
+description: Use toongate in front of LiteLLM proxy for compressed multi-model routing.
+---
+
+## Setup
+
+Point `UPSTREAM_URL` at your LiteLLM proxy:
+
+```bash
+UPSTREAM_URL=http://localhost:4000/v1
+OPENAI_API_KEY=sk-...   # your LiteLLM master key or a virtual key
+```
+
+```typescript
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "https://toongate.workers.dev/v1",
+});
+```
+
+The request flows:
+
+```
+Your App → toongate (compress) → LiteLLM proxy (route) → any LLM
+```
+
+---
+
+## LiteLLM deployed on a server
+
+If LiteLLM is running on a remote server (not localhost), update `UPSTREAM_URL` accordingly:
+
+```bash
+UPSTREAM_URL=https://litellm.yourcompany.com/v1
+OPENAI_API_KEY=<litellm-virtual-key>
+```
+
+toongate forwards the `Authorization: Bearer` header with your LiteLLM key.
+
+---
+
+## Supported routes
+
+toongate proxies the OpenAI-compatible routes that LiteLLM exposes:
+
+| Route | Description |
+|---|---|
+| `POST /v1/chat/completions` | Chat completions (any model LiteLLM supports) |
+| `POST /v1/embeddings` | Embeddings |
+
+LiteLLM-specific routes (e.g. `/models`, `/spend`) are not proxied through toongate — call them directly on your LiteLLM instance.
+
+---
+
+## Model routing
+
+Model names pass through to LiteLLM unchanged. Any model string LiteLLM understands works:
+
+```typescript
+// Routes to OpenAI via LiteLLM
+await openai.chat.completions.create({ model: "gpt-4o", messages: [...] });
+
+// Routes to Anthropic via LiteLLM
+await openai.chat.completions.create({ model: "claude-opus-4-5", messages: [...] });
+
+// Routes to a custom deployment
+await openai.chat.completions.create({ model: "my-azure-gpt4", messages: [...] });
+```
+
+toongate compresses the payload regardless of which model is targeted — compression is model-agnostic.
+
+---
+
+## Virtual keys
+
+LiteLLM virtual keys work transparently:
+
+```bash
+OPENAI_API_KEY=sk-litellm-...  # virtual key created in LiteLLM dashboard
+```
+
+toongate injects this as `Authorization: Bearer sk-litellm-...` on every request.

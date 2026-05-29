@@ -1,0 +1,60 @@
+---
+title: Azure OpenAI
+description: Use toongate in front of Azure OpenAI Service.
+---
+
+## Setup
+
+Azure OpenAI uses a different URL pattern and API key header than OpenAI direct. Set `UPSTREAM_URL` to your Azure OpenAI endpoint:
+
+```bash
+UPSTREAM_URL=https://{resource-name}.openai.azure.com/openai/deployments/{deployment-id}
+OPENAI_API_KEY=<azure-api-key>
+```
+
+```typescript
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "https://toongate.workers.dev/v1",
+  defaultQuery: { "api-version": "2024-02-01" },
+  defaultHeaders: { "api-key": process.env.AZURE_OPENAI_API_KEY },
+});
+```
+
+<Note>
+  Azure OpenAI uses `api-key` instead of `Authorization: Bearer`. Pass it as a custom header from your SDK — toongate forwards it unchanged.
+</Note>
+
+---
+
+## Request flow
+
+```
+Your App → toongate (compress) → Azure OpenAI endpoint
+```
+
+toongate compresses `messages[].content` arrays before forwarding to Azure. The Azure API key and `api-version` query parameter pass through to Azure unchanged.
+
+---
+
+## Supported routes
+
+| toongate route | Azure route |
+|---|---|
+| `POST /v1/chat/completions` | `POST /chat/completions?api-version=...` |
+| `POST /v1/embeddings` | `POST /embeddings?api-version=...` |
+
+The `api-version` query parameter you set in your SDK is forwarded to Azure by toongate.
+
+---
+
+## Per-route threshold
+
+Tune the eligibility threshold for Azure chat completions specifically:
+
+```bash
+TOON_THRESHOLD_CHAT=0.5
+```
+
+This applies to all chat completion requests regardless of which upstream (Azure, OpenAI, or other) handles them.

@@ -1,0 +1,88 @@
+---
+title: Eligibility Scoring
+description: How toongate decides whether to compress a payload — and how to tune it.
+---
+
+## Overview
+
+Before compressing any request, toongate runs the payload through an eligibility scorer that returns a value between `0.0` and `1.0`. If the score meets the configured threshold, the payload is encoded with TOON. If not, it passes through unchanged.
+
+The score is always returned in the `X-Toongate-Eligibility-Score` response header, regardless of whether compression happened.
+
+---
+
+## What the scorer measures
+
+The scorer analyzes the `messages[].content` fields in the request body and looks for:
+
+| Signal | Weight |
+|---|---|
+| **Uniformity** — do all array objects share the same keys? | High |
+| **Array length** — more rows = more benefit from TOON | Medium |
+| **Value types** — scalar values (strings, numbers, booleans) compress better than nested objects | Medium |
+| **Key count** — more fields = more repetition saved | Low |
+
+A payload that is a 50-row uniform array of flat objects scores close to `1.0`. A single free-form text message scores `0.0`.
+
+---
+
+## Score thresholds
+
+```
+0.0 – 0.4   Pass-through. Not worth encoding.
+0.4 – 0.6   Borderline. Depends on TOON_THRESHOLD setting.
+0.6 – 1.0   Compress.
+```
+
+The default `TOON_THRESHOLD` is `0.6`. You can tune this globally or per route.
+
+---
+
+## Threshold configuration
+
+**Global threshold**
+
+```bash
+TOON_THRESHOLD=0.5   # compress more aggressively
+TOON_THRESHOLD=0.8   # only compress high-confidence payloads
+```
+
+**Per-route overrides**
+
+```bash
+TOON_THRESHOLD_CHAT=0.5         # /v1/chat/completions
+TOON_THRESHOLD_EMBEDDINGS=0.4   # /v1/embeddings
+TOON_THRESHOLD_MESSAGES=0.6     # Anthropic /v1/messages
+```
+
+Per-route values take precedence over `TOON_THRESHOLD`. Routes without a specific override inherit the global value.
+
+---
+
+## Finding the right threshold
+
+The safest way to tune is with [dry-run mode](/docs/compression/dry-run-mode):
+
+1. Set `TOON_DRY_RUN=true`
+2. Run real traffic for a day
+3. Query `X-Toongate-Eligibility-Score` values from your D1 savings log
+4. Pick a threshold that captures the scores you see in practice
+
+A threshold of `0.6` works well for RAG pipelines with structured retrieval chunks. Lower it to `0.4–0.5` if you often pass short arrays (3–5 rows) that score just below the default.
+
+---
+
+## Inspecting scores on individual requests
+
+Every response includes the score header:
+
+```bash
+curl -si https://toongate.workers.dev/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o","messages":[...]}' \
+  | grep x-toongate-eligibility-score
+
+# x-toongate-eligibility-score: 0.82
+```
+
+A score of `0.0` means the payload is pure free-form text. A score above your threshold means the payload was (or would be) compressed.

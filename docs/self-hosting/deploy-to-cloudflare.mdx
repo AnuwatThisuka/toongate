@@ -1,0 +1,74 @@
+---
+title: Deploy to Cloudflare
+description: Deploy toongate globally on Cloudflare Workers in under 5 minutes.
+---
+
+## Deploy
+
+After completing [local setup](/docs/getting-started/quickstart), deploy with:
+
+```bash
+npm run db:migrate:remote
+npm run deploy
+```
+
+Wrangler outputs your Worker URL — something like `https://toongate.<your-subdomain>.workers.dev`.
+
+---
+
+## Set production secrets
+
+```bash
+wrangler secret put OPENAI_API_KEY
+wrangler secret put ANTHROPIC_API_KEY   # if using Anthropic
+wrangler secret put ADMIN_KEY           # protects /savings and /metrics
+```
+
+<Warning>
+  Never put secrets in `wrangler.jsonc` — use `wrangler secret put` for anything sensitive. Secrets are encrypted at rest and never appear in deployment logs.
+</Warning>
+
+---
+
+## Custom domain (optional)
+
+In the Cloudflare dashboard: **Workers & Pages → your worker → Settings → Triggers → Custom Domains**.
+
+Add `toongate.yourdomain.com` and update your app's `baseURL`.
+
+---
+
+## Verify the deployment
+
+```bash
+# Health check
+curl https://toongate.<subdomain>.workers.dev/health
+
+# Test compression
+curl -s https://toongate.<subdomain>.workers.dev/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [{
+      "role": "user",
+      "content": "hello"
+    }]
+  }' -I | grep x-toongate
+
+# Expected:
+# x-toongate-compressed: false   (plain text, no array to compress)
+# x-toongate-eligibility-score: 0.0
+```
+
+---
+
+## Cloudflare free tier limits
+
+| Resource | Free tier |
+|---|---|
+| Worker requests | 100,000 / day |
+| D1 reads | 5M / day |
+| D1 writes | 100K / day |
+| Worker CPU time | 10ms / request |
+
+toongate uses well under 1ms CPU per request. Most production workloads stay within the free tier for the Worker itself — D1 writes may require the paid plan at high volume.
