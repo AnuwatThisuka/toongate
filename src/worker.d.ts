@@ -5,6 +5,9 @@ interface Env {
   OPENAI_API_KEY: string;
   ANTHROPIC_API_KEY: string;
   TOON_THRESHOLD: string;
+  TOON_THRESHOLD_MESSAGES: string;
+  TOON_THRESHOLD_CHAT: string;
+  TOON_THRESHOLD_EMBEDDINGS: string;
   TOON_LOG_SAVINGS: string;
   TOON_DRY_RUN: string;
   DB: D1Database;
