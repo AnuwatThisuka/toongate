@@ -158,10 +158,11 @@ app.get("/savings/dashboard", async (c) => {
     .map((r) => {
       const pct = Math.round((r.tokens_saved / maxTokens) * 100);
       const label = r.day.slice(5); // MM-DD
+      const loClass = pct < 10 ? " lo" : "";
       return `<div class="bar-row">
-        <span class="bar-label">${label}</span>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-        <span class="bar-val">${fmt(r.tokens_saved)}</span>
+        <span class="bar-day">${label}</span>
+        <div class="bar-track"><div class="bar-fill${loClass}" style="width:${pct}%"></div></div>
+        <span class="bar-num">${fmt(r.tokens_saved)}</span>
       </div>`;
     })
     .join("\n");
@@ -169,10 +170,10 @@ app.get("/savings/dashboard", async (c) => {
   const modelRows = (byModel.results ?? [])
     .map(
       (m) => `<tr>
-      <td>${m.model}</td>
-      <td class="num">${fmt(m.requests)}</td>
-      <td class="num">${fmt(m.total_tokens_saved)}</td>
-      <td class="num green">$${m.total_usd_saved.toFixed(4)}</td>
+      <td><div class="model-name"><div class="model-dot"></div><span class="hi">${m.model}</span></div></td>
+      <td class="r">${fmt(m.requests)}</td>
+      <td class="r">${fmt(m.total_tokens_saved)}</td>
+      <td class="r hi">$${m.total_usd_saved.toFixed(4)}</td>
     </tr>`,
     )
     .join("\n");
@@ -184,79 +185,146 @@ app.get("/savings/dashboard", async (c) => {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Toongate · Savings Dashboard</title>
+<title>Toongate · Savings</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0d0d0d;color:#e8e8e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:32px 24px}
-  .wrap{max-width:720px;margin:0 auto}
-  header{display:flex;align-items:center;gap:12px;margin-bottom:32px}
-  .logo{font-size:22px;font-weight:700;letter-spacing:-0.5px}
-  .logo span{color:#a78bfa}
-  .badge{font-size:11px;background:#1e1e2e;color:#7c7c9a;border:1px solid #2a2a3e;border-radius:6px;padding:2px 8px}
-  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:28px}
+  :root{
+    --bg:#000;--surface:#0a0a0a;--surface2:#111;
+    --border:#1a1a1a;--border2:#222;
+    --fg:#ededed;--muted:#888;--dim:#333;
+    --blue:#0070f3;--green:#50e3c2;--white:#fff;
+  }
+  body{background:var(--bg);color:var(--fg);font-family:'Geist',system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;min-height:100vh;padding:40px 24px}
+  .wrap{max-width:760px;margin:0 auto}
+
+  /* nav */
+  nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:48px}
+  .wordmark{font-size:15px;font-weight:600;color:var(--white);letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+  .wordmark svg{opacity:.9}
+  .nav-right{display:flex;align-items:center;gap:16px}
+  .pill{font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted);border-radius:100px;padding:3px 10px}
+  .ts-pill{font-size:11px;color:var(--dim)}
+
+  /* page title */
+  .page-head{margin-bottom:32px}
+  .page-title{font-size:24px;font-weight:700;letter-spacing:-.6px;color:var(--white);margin-bottom:4px}
+  .page-sub{font-size:13px;color:var(--muted)}
+
+  /* stat cards */
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:24px}
   @media(min-width:500px){.cards{grid-template-columns:repeat(4,1fr)}}
-  .card{background:#141420;border:1px solid #1e1e2e;border-radius:12px;padding:16px}
-  .card-label{font-size:11px;color:#7c7c9a;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
-  .card-value{font-size:26px;font-weight:700;line-height:1}
-  .card-value.green{color:#4ade80}
-  .card-value.purple{color:#a78bfa}
-  .card-value.blue{color:#60a5fa}
-  .card-value.amber{color:#fbbf24}
-  section{background:#141420;border:1px solid #1e1e2e;border-radius:12px;padding:20px;margin-bottom:16px}
-  h2{font-size:13px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px}
-  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12px}
-  .bar-label{width:40px;color:#6b7280;text-align:right;flex-shrink:0}
-  .bar-track{flex:1;background:#1e1e2e;border-radius:4px;height:10px;overflow:hidden}
-  .bar-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:4px;transition:width .3s}
-  .bar-val{width:52px;color:#d1d5db;text-align:right;flex-shrink:0}
+  .card{background:var(--surface);padding:20px;position:relative}
+  .card-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+  .card-value{font-size:28px;font-weight:700;letter-spacing:-1.5px;color:var(--white);line-height:1}
+  .card-value.accent{color:var(--blue)}
+  .card-value.teal{color:var(--green)}
+
+  /* section */
+  .section{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px}
+  .section-header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+  .section-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .section-hint{font-size:11px;color:var(--dim)}
+  .section-body{background:var(--bg);padding:20px}
+
+  /* bar chart */
+  .bar-row{display:grid;grid-template-columns:42px 1fr 60px;align-items:center;gap:12px;margin-bottom:9px}
+  .bar-row:last-child{margin-bottom:0}
+  .bar-day{font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+  .bar-track{background:var(--surface2);border-radius:2px;height:8px;overflow:hidden;position:relative}
+  .bar-fill{position:absolute;left:0;top:0;height:100%;background:var(--white);border-radius:2px;opacity:.9}
+  .bar-fill.lo{background:var(--dim);opacity:1}
+  .bar-num{font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+
+  /* table */
   table{width:100%;border-collapse:collapse;font-size:13px}
-  th{text-align:left;color:#6b7280;font-weight:500;padding:0 8px 10px 0;border-bottom:1px solid #1e1e2e}
-  td{padding:9px 8px 9px 0;border-bottom:1px solid #111120;color:#d1d5db;word-break:break-all}
-  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  td.green{color:#4ade80}
-  footer{margin-top:24px;font-size:11px;color:#3f3f5a;text-align:center}
+  .section-body.table-wrap{padding:0}
+  th{font-size:11px;font-weight:500;color:var(--muted);text-align:left;padding:12px 20px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px}
+  th.r{text-align:right}
+  td{padding:13px 20px;border-bottom:1px solid var(--border);color:var(--fg);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:var(--surface)}
+  td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted)}
+  td.hi{color:var(--white);font-weight:500}
+  .model-name{display:flex;align-items:center;gap:10px}
+  .model-dot{width:6px;height:6px;border-radius:50%;background:var(--blue);flex-shrink:0}
+
+  /* footer */
+  footer{margin-top:32px;display:flex;justify-content:space-between;align-items:center}
+  .footer-left{font-size:11px;color:var(--dim)}
+  .footer-right{display:flex;gap:16px}
+  .footer-right a{font-size:11px;color:var(--dim);text-decoration:none;display:flex;align-items:center;gap:4px}
+  .footer-right a:hover{color:var(--muted)}
+  .arrow{font-size:10px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div class="logo">toon<span>gate</span></div>
-    <div class="badge">savings dashboard</div>
-  </header>
+
+  <nav>
+    <div class="wordmark">
+      toongate
+    </div>
+    <div class="nav-right">
+      <span class="pill">savings</span>
+      <span class="ts-pill">${generatedAt}</span>
+    </div>
+  </nav>
+
+  <div class="page-head">
+    <div class="page-title">Savings Overview</div>
+    <div class="page-sub">Token compression savings across all requests</div>
+  </div>
 
   <div class="cards">
     <div class="card">
-      <div class="card-label">Tokens saved</div>
-      <div class="card-value purple">${fmt(totalTokens)}</div>
+      <div class="card-label">Tokens Saved</div>
+      <div class="card-value">${fmt(totalTokens)}</div>
     </div>
     <div class="card">
-      <div class="card-label">USD saved</div>
-      <div class="card-value green">$${totalUsd.toFixed(4)}</div>
+      <div class="card-label">USD Saved</div>
+      <div class="card-value teal">$${totalUsd.toFixed(4)}</div>
     </div>
     <div class="card">
       <div class="card-label">Requests</div>
-      <div class="card-value blue">${fmt(totalReqs)}</div>
+      <div class="card-value accent">${fmt(totalReqs)}</div>
     </div>
     <div class="card">
       <div class="card-label">Compression</div>
-      <div class="card-value amber">${compressionRate}%</div>
+      <div class="card-value">${compressionRate}%</div>
     </div>
   </div>
 
-  <section>
-    <h2>Tokens saved · last 14 days</h2>
-    ${barRows || '<p style="color:#3f3f5a;font-size:13px">No data yet.</p>'}
-  </section>
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Tokens Saved</span>
+      <span class="section-hint">Last 14 days</span>
+    </div>
+    <div class="section-body">
+      ${barRows || '<span style="font-size:13px;color:var(--dim)">No data yet.</span>'}
+    </div>
+  </div>
 
-  <section>
-    <h2>By model</h2>
-    <table>
-      <thead><tr><th>Model</th><th style="text-align:right">Reqs</th><th style="text-align:right">Tokens saved</th><th style="text-align:right">USD saved</th></tr></thead>
-      <tbody>${modelRows || '<tr><td colspan="4" style="color:#3f3f5a">No data yet.</td></tr>'}</tbody>
-    </table>
-  </section>
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">By Model</span>
+    </div>
+    <div class="section-body table-wrap">
+      <table>
+        <thead><tr><th>Model</th><th class="r">Requests</th><th class="r">Tokens Saved</th><th class="r">USD Saved</th></tr></thead>
+        <tbody>${modelRows || '<tr><td colspan="4" style="color:var(--dim);text-align:center;padding:20px">No data yet.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>
 
-  <footer>generated ${generatedAt} · <a href="/savings/summary" style="color:#3f3f5a">JSON API</a></footer>
+  <footer>
+    <span class="footer-left">toongate · savings dashboard</span>
+    <div class="footer-right">
+      <a href="/savings/summary">JSON API <span class="arrow">↗</span></a>
+      <a href="/savings/history">History <span class="arrow">↗</span></a>
+    </div>
+  </footer>
+
 </div>
 </body>
 </html>`;
