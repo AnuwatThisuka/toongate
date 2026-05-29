@@ -102,6 +102,8 @@ async function proxy(
 
   const respHeaders = new Headers(response.headers);
   respHeaders.delete("content-encoding");
+  respHeaders.set("x-toongate-compressed", tokensSaved > 0 ? "true" : "false");
+  respHeaders.set("x-toongate-saved", `${tokensSaved} tokens`);
 
   if (isStreaming && response.body) {
     return new Response(response.body.pipeThrough(createSseDecodeStream()), {
