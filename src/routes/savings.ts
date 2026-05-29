@@ -263,7 +263,6 @@ app.get("/savings/dashboard", async (c) => {
 
   <nav>
     <div class="wordmark">
-      <svg width="16" height="16" viewBox="0 0 76 65" fill="white"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
       toongate
     </div>
     <div class="nav-right">
