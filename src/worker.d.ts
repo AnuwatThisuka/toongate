@@ -6,6 +6,7 @@ interface Env {
   ANTHROPIC_API_KEY: string;
   TOON_THRESHOLD: string;
   TOON_LOG_SAVINGS: string;
+  TOON_DRY_RUN: string;
   DB: D1Database;
   CF_AIG_TOKEN: string;
 }
