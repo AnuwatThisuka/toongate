@@ -110,5 +110,12 @@
   ],
   "footerSocials": {
     "github": "https://github.com/anuwatthisuka/toongate"
-  }
+  },
+  "ignores": [
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "README.md",
+    ".github/**"
+  ]
 }
