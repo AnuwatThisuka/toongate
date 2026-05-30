@@ -61,12 +61,26 @@ export function compressRequestBody(
   const compressedText = JSON.stringify(compressedBody);
   const tokensAfter = estimateTokens(compressedText);
 
+  // If TOON encoding made the payload larger (can happen for small arrays),
+  // fall back to the original — never send a bigger payload than we received.
+  if (tokensAfter >= tokensBefore) {
+    return {
+      body,
+      bodyText: originalText,
+      tokensBefore,
+      tokensAfter: tokensBefore,
+      tokensSaved: 0,
+      eligibilityScore: maxScore,
+      compressed: false,
+    };
+  }
+
   return {
     body: compressedBody,
     bodyText: compressedText,
     tokensBefore,
     tokensAfter,
-    tokensSaved: Math.max(0, tokensBefore - tokensAfter),
+    tokensSaved: tokensBefore - tokensAfter,
     eligibilityScore: maxScore,
     compressed: true,
   };
