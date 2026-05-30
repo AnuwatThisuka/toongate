@@ -264,6 +264,9 @@ src/
     └── pricing.ts        # Token → USD cost per model (generated from LiteLLM)
 migrations/
 └── 0001_init.sql         # savings table
+benchmark/
+├── toongate-loadtest.sh  # smoke-test: 100 requests, compression rate, verdict
+└── toongate-benchmark.mjs  # full benchmark: compression, latency, throughput
 ```
 
 **Runtime:** Cloudflare Workers (no Node.js, no servers)  
@@ -283,21 +286,25 @@ npm run types             # regenerate wrangler type bindings → src/worker.d.t
 npm run generate:pricing  # fetch latest model prices from LiteLLM → src/lib/pricing.ts
 ```
 
-### Load test
+### Load test & benchmark
 
-`toongate-loadtest.sh` smoke-tests a live Worker — sends 100 requests across 4 payload types (RAG chunks, DB rows, product catalog, plain text) and reports compression rate, tokens saved, and a final verdict.
+Two scripts are available in `benchmark/`:
+
+| Script | What it does |
+|---|---|
+| `toongate-loadtest.sh` | Smoke-test — 100 requests, 4 payload types, compression rate + verdict |
+| `toongate-benchmark.mjs` | Full benchmark — compression ratio, latency overhead vs direct, throughput (req/s) |
 
 ```bash
-chmod +x toongate-loadtest.sh
+# Load test (bash)
+chmod +x benchmark/toongate-loadtest.sh
+benchmark/toongate-loadtest.sh http://localhost:8787                          # local
+benchmark/toongate-loadtest.sh https://toongate.workers.dev <admin> <proxy>  # production
 
-# Local dev
-./toongate-loadtest.sh http://localhost:8787
-
-# Production (with savings API summary)
-./toongate-loadtest.sh https://toongate.workers.dev <admin-key>
-
-# Production with PROXY_AUTH_KEY set
-./toongate-loadtest.sh https://toongate.workers.dev <admin-key> <proxy-key>
+# Benchmark suite (Node.js 18+)
+node benchmark/toongate-benchmark.mjs <toongate-url> <direct-url> [admin-key]
+# Example:
+node benchmark/toongate-benchmark.mjs https://toongate.workers.dev https://api.openai.com my-admin-key
 ```
 
 ---
