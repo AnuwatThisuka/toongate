@@ -166,6 +166,20 @@ curl https://toongate.workers.dev/savings/summary \
 ```
 
 ```bash
+# Savings totals grouped by model, sorted by tokens_saved desc
+curl https://toongate.workers.dev/savings/by-model \
+  -H "X-Toongate-Admin-Key: your-admin-key"
+```
+
+```json
+{
+  "rows": [
+    { "model": "gpt-4o", "request_count": 80, "tokens_saved": 32000, "usd_saved": 0.096 }
+  ]
+}
+```
+
+```bash
 # Paginated raw log, newest first (limit max 500)
 curl "https://toongate.workers.dev/savings/history?limit=50&offset=0" \
   -H "X-Toongate-Admin-Key: your-admin-key"
@@ -240,13 +254,14 @@ src/
 ├── routes/
 │   ├── openai.ts         # POST /v1/chat/completions, /v1/embeddings
 │   ├── anthropic.ts      # POST /v1/messages
-│   └── savings.ts        # GET /savings/summary, /savings/history, /savings/dashboard
+│   └── savings.ts        # GET /savings/summary, /savings/by-model, /savings/history, /savings/dashboard
 └── lib/
     ├── encoder.ts        # JSON → TOON via @toon-format/toon
     ├── decoder.ts        # TOON → JSON, falls back gracefully on error
     ├── eligibility.ts    # Tabular eligibility scoring (0–1)
+    ├── safe-compare.ts   # Constant-time string comparison for auth keys
     ├── savings.ts        # D1 prepared-statement insert, fire-and-forget
-    └── pricing.ts        # Token → USD cost per model
+    └── pricing.ts        # Token → USD cost per model (generated from LiteLLM)
 migrations/
 └── 0001_init.sql         # savings table
 ```
