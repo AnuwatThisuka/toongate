@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "toongate",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // Secrets — set via `wrangler secret put <NAME>` or in .dev.vars for local dev.
+  //
+  // OpenAI  (/v1/*)
+  //   OPENAI_API_KEY
+  //   UPSTREAM_URL  (default: https://api.openai.com/v1, or a Cloudflare AI Gateway URL)
+  //
+  // Anthropic  (/v1/messages)
+  //   ANTHROPIC_API_KEY
+  //
+  // Azure OpenAI  (/azure/v1/*)
+  //   AZURE_OPENAI_API_KEY
+  //   AZURE_OPENAI_ENDPOINT   e.g. https://{resource}.openai.azure.com
+  //   AZURE_OPENAI_API_VERSION  (optional, default: 2024-02-01)
+  //
+  // Gemini  (/gemini/v1/*)
+  //   GEMINI_API_KEY
+  //   GEMINI_UPSTREAM_URL  (optional, for Vertex AI override)
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "toongate-savings",
+      // Replace with your D1 database_id from: npx wrangler d1 create toongate-savings
+      "database_id": "<your-database-id>",  // ← paste ID from: npx wrangler d1 create toongate-savings
+      "migrations_dir": "migrations",
+    },
+  ],
+}

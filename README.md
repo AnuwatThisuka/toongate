@@ -76,6 +76,7 @@ toongate runs on [Cloudflare Workers](https://workers.cloudflare.com) with [D1](
 git clone https://github.com/anuwatthisuka/toongate
 cd toongate
 npm install
+cp wrangler.jsonc.example wrangler.jsonc
 ```
 
 Create the D1 database and copy the `database_id` from the output:
