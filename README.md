@@ -127,7 +127,7 @@ All configuration is via environment variables. In production, set secrets with 
 
 | Variable | Example | Description |
 | --- | --- | --- |
-| `UPSTREAM_URL` | `https://gateway.ai.cloudflare.com/v1/{account}/{gateway}/openai` | Upstream base URL. See `.dev.vars.example` for all gateway options. |
+| `UPSTREAM_URL` | `https://api.openai.com/v1` | Upstream base URL. See `.dev.vars.example` for all gateway options. |
 | `OPENAI_API_KEY` | `sk-...` | Injected as `Authorization: Bearer` on OpenAI routes. |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | Injected as `x-api-key` on Anthropic routes. |
 | `CF_AIG_TOKEN` | `vck_...` | Cloudflare AI Gateway auth token. Accepts bare token or `Bearer token` — normalized automatically. Leave empty if gateway auth is disabled. |
