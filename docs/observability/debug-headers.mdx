@@ -28,7 +28,10 @@ const response = await openai.chat.completions.create({ ... });
 // With raw fetch
 const res = await fetch("https://toongate.workers.dev/v1/chat/completions", {
   method: "POST",
-  headers: { "Content-Type": "application/json", "Authorization": "Bearer sk-..." },
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer $PROXY_AUTH_KEY",
+  },
   body: JSON.stringify({ model: "gpt-4o", messages: [...] }),
 });
 
@@ -42,7 +45,10 @@ import httpx
 with httpx.Client() as client:
     res = client.post(
         "https://toongate.workers.dev/v1/chat/completions",
-        headers={"Authorization": "Bearer sk-...", "Content-Type": "application/json"},
+        headers={
+            "Authorization": "Bearer $PROXY_AUTH_KEY",
+            "Content-Type": "application/json",
+        },
         json={"model": "gpt-4o", "messages": [...]},
     )
     print(res.headers.get("x-toongate-tokens-saved"))  # "569"
@@ -51,9 +57,9 @@ with httpx.Client() as client:
 
 ```bash cURL
 curl -si https://toongate.workers.dev/v1/chat/completions \
-  -H "Authorization: Bearer sk-..." \
+  -H "Authorization: Bearer $PROXY_AUTH_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"..."}]}' \
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":[{"type":"text","text":"Summarize:"},{"type":"text","text":"[{\"id\":1}]"}]}]}' \
   | grep -i x-toongate
 
 # x-toongate-compressed: true
@@ -72,9 +78,9 @@ If you're seeing `X-Toongate-Compressed: false` more than expected:
 
 <AccordionGroup>
   <Accordion title="Low eligibility score (< threshold)">
-    Your payload is mostly free-form text or doesn't contain uniform arrays. Check `X-Toongate-Eligibility-Score` — if it's consistently below `0.4`, compression won't help your use case.
+    Your payload is mostly free-form text or `content` is a plain string. Plain strings always score `0.0` — even if they contain JSON text. Check `X-Toongate-Eligibility-Score` — if it's consistently below `0.4`, compression won't help your use case.
 
-    **Fix:** Structure your RAG results or data as a top-level array before inserting into messages content. See [What gets compressed](/docs/compression/what-gets-compressed).
+    **Fix:** Use a content array with separate text parts (OpenAI multimodal format). See [What gets compressed](/docs/compression/what-gets-compressed).
   </Accordion>
 
   <Accordion title="Threshold too high">

@@ -23,7 +23,7 @@ The request body is the standard OpenAI Chat Completions request schema.
 </ParamField>
 
 <ParamField body="messages" type="array" required>
-  Array of message objects. `content` fields containing uniform arrays of objects are eligible for TOON compression.
+  Array of message objects. `content` must be an array (not a plain string) for structured data to be eligible — use OpenAI multimodal format with `{ type: "text", text: "..." }` parts.
 </ParamField>
 
 <ParamField body="stream" type="boolean">
@@ -44,12 +44,16 @@ The request body is the standard OpenAI Chat Completions request schema.
 ```bash cURL
 curl https://toongate.workers.dev/azure/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PROXY_AUTH_KEY" \
   -d '{
     "model": "my-gpt4o-deployment",
     "messages": [
       {
         "role": "user",
-        "content": "Summarize: [{\"id\":1,\"title\":\"A\",\"score\":0.9},{\"id\":2,\"title\":\"B\",\"score\":0.8}]"
+        "content": [
+          { "type": "text", "text": "Summarize:" },
+          { "type": "text", "text": "[{\"id\":1,\"title\":\"A\",\"score\":0.9},{\"id\":2,\"title\":\"B\",\"score\":0.8}]" }
+        ]
       }
     ]
   }'

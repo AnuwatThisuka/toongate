@@ -58,7 +58,10 @@ Open `.dev.vars` and fill in at minimum:
 ```bash .dev.vars
 UPSTREAM_URL=https://api.openai.com/v1
 OPENAI_API_KEY=sk-...
+PROXY_AUTH_KEY=change-me-to-a-random-32-char-string
 ```
+
+When calling toongate locally, pass `Authorization: Bearer <PROXY_AUTH_KEY>` on every proxy request.
 
 <Tip>
   If you're using a gateway like Cloudflare AI Gateway or Helicone, set `UPSTREAM_URL` to your gateway's base URL instead. toongate forwards all existing gateway headers untouched.
@@ -116,6 +119,7 @@ Point your OpenAI SDK at toongate instead of your gateway:
   ```
 
   ```python Python
+  import json
   from openai import OpenAI
 
   client = OpenAI(
@@ -128,21 +132,34 @@ Point your OpenAI SDK at toongate instead of your gateway:
       messages=[
           {
               "role": "user",
-              "content": "Summarize these results: " + json.dumps([
-                  {"title": "Result 1", "url": "https://...", "snippet": "..."},
-                  {"title": "Result 2", "url": "https://...", "snippet": "..."},
-              ])
+              "content": [
+                  {"type": "text", "text": "Summarize these search results:"},
+                  {
+                      "type": "text",
+                      "text": json.dumps([
+                          {"title": "Result 1", "url": "https://...", "snippet": "..."},
+                          {"title": "Result 2", "url": "https://...", "snippet": "..."},
+                      ]),
+                  },
+              ],
           }
-      ]
+      ],
   )
   ```
 
   ```bash cURL
   curl http://localhost:8787/v1/chat/completions \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $PROXY_AUTH_KEY" \
     -d '{
       "model": "gpt-4o",
-      "messages": [{"role": "user", "content": "Hello"}]
+      "messages": [{
+        "role": "user",
+        "content": [
+          { "type": "text", "text": "Summarize these search results:" },
+          { "type": "text", "text": "[{\"title\":\"Result 1\",\"url\":\"https://...\",\"snippet\":\"...\"}]" }
+        ]
+      }]
     }'
   ```
 </CodeGroup>
@@ -177,7 +194,7 @@ Then set your production secrets:
 ```bash
 wrangler secret put OPENAI_API_KEY
 wrangler secret put ADMIN_KEY        # protects /savings/* routes
-# wrangler secret put PROXY_AUTH_KEY  # optional — protects /v1/* proxy routes
+wrangler secret put PROXY_AUTH_KEY   # required — protects /v1/* proxy routes
 ```
 
 Update your app's `baseURL` to the deployed Worker URL — done.

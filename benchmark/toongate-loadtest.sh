@@ -2,12 +2,17 @@
 # ============================================================
 # toongate Load Test Script
 # Usage: ./toongate-loadtest.sh <worker-url> [admin-key] [proxy-key]
-# Example: ./toongate-loadtest.sh https://toongate.workers.dev my-admin-key my-proxy-key
+#
+# proxy-key falls back to PROXY_AUTH_KEY env var when omitted.
+#
+# Example:
+#   PROXY_AUTH_KEY=xxx ./toongate-loadtest.sh http://localhost:8787
+#   ./toongate-loadtest.sh https://toongate.workers.dev my-admin-key my-proxy-key
 # ============================================================
 
 WORKER_URL="${1:-http://localhost:8787}"
 ADMIN_KEY="${2:-}"
-PROXY_KEY="${3:-}"
+PROXY_KEY="${3:-${PROXY_AUTH_KEY:-}}"
 REQUESTS=100
 CONCURRENCY=5
 PASS=0
@@ -32,75 +37,83 @@ echo -e "  Target  : ${CYAN}${WORKER_URL}${RESET}"
 echo -e "  Requests: ${REQUESTS} total (${CONCURRENCY} concurrent)"
 if [ -n "$PROXY_KEY" ]; then
   echo -e "  Auth    : PROXY_AUTH_KEY set ✓"
+else
+  echo -e "  Auth    : ${YELLOW}missing — set arg 3 or PROXY_AUTH_KEY env${RESET}"
 fi
 echo ""
 
 # ── Payloads ────────────────────────────────────────────────
+# content must be an array (not a plain string) for eligibility scoring.
 
-# 1. RAG chunks (high compression expected ~40%)
-RAG_PAYLOAD='{
-  "model": "gpt-4o-mini",
-  "messages": [{
-    "role": "user",
-    "content": "Summarize these search results:\n'"$(cat <<'JSON'
-[
-  {"id":1,"title":"Introduction to TOON Format","score":0.91,"url":"https://toonformat.dev/intro","snippet":"TOON is a compact encoding for uniform arrays of objects, reducing token count by up to 40%."},
-  {"id":2,"title":"Cloudflare Workers Overview","score":0.87,"url":"https://workers.cloudflare.com","snippet":"Run code at the edge globally with sub-millisecond cold starts and zero server management."},
-  {"id":3,"title":"LLM Token Cost Optimization","score":0.84,"url":"https://example.com/llm-costs","snippet":"Token costs add up fast at scale. Structured data compression is one of the most effective strategies."},
-  {"id":4,"title":"RAG Pipeline Best Practices","score":0.79,"url":"https://example.com/rag","snippet":"Retrieval-augmented generation works best when chunks are uniform and well-structured."},
-  {"id":5,"title":"Hono Framework for Workers","score":0.76,"url":"https://hono.dev","snippet":"Hono is a lightweight, ultrafast web framework designed for Cloudflare Workers and edge runtimes."}
-]
-JSON
-)"
-  }]
-}'
+PAYLOAD_DIR=$(mktemp -d)
 
-# 2. DB rows (high compression expected ~38%)
-DB_PAYLOAD='{
-  "model": "gpt-4o-mini",
-  "messages": [{
-    "role": "user",
-    "content": "Analyze this user data and identify patterns:\n'"$(cat <<'JSON'
-[
-  {"user_id":1001,"name":"Alice Chen","plan":"pro","requests_today":842,"tokens_used":124500,"joined":"2024-01-15"},
-  {"user_id":1002,"name":"Bob Smith","plan":"free","requests_today":23,"tokens_used":4200,"joined":"2024-03-01"},
-  {"user_id":1003,"name":"Carol Lee","plan":"enterprise","requests_today":5241,"tokens_used":892000,"joined":"2023-11-20"},
-  {"user_id":1004,"name":"David Kim","plan":"pro","requests_today":312,"tokens_used":48900,"joined":"2024-02-10"},
-  {"user_id":1005,"name":"Eve Johnson","plan":"free","requests_today":8,"tokens_used":1100,"joined":"2024-04-05"}
-]
-JSON
-)"
-  }]
-}'
+node - "$PAYLOAD_DIR" <<'NODE'
+const fs = require("fs");
+const path = process.argv[2];
+const model = "typhoon-v2.5-30b-a3b-instruct";
 
-# 3. Product catalog (high compression expected ~42%)
-PRODUCT_PAYLOAD='{
-  "model": "gpt-4o-mini",
-  "messages": [{
-    "role": "user",
-    "content": "Which products should I recommend to a developer?\n'"$(cat <<'JSON'
-[
-  {"sku":"TOOL-001","name":"Claude API Access","category":"AI","price":20.00,"stock":999,"rating":4.9},
-  {"sku":"TOOL-002","name":"GitHub Copilot","category":"AI","price":19.00,"stock":999,"rating":4.7},
-  {"sku":"TOOL-003","name":"Vercel Pro","category":"Hosting","price":20.00,"stock":999,"rating":4.8},
-  {"sku":"TOOL-004","name":"PlanetScale","category":"Database","price":29.00,"stock":999,"rating":4.6},
-  {"sku":"TOOL-005","name":"Cloudflare Workers","category":"Edge","price":5.00,"stock":999,"rating":4.9}
-]
-JSON
-)"
-  }]
-}'
+function structuredMessage(prompt, data) {
+  return {
+    role: "user",
+    content: [
+      { type: "text", text: prompt },
+      { type: "text", text: JSON.stringify(data) },
+    ],
+  };
+}
 
-# 4. Plain text (no compression expected — baseline)
-TEXT_PAYLOAD='{
-  "model": "gpt-4o-mini",
-  "messages": [{
-    "role": "user",
-    "content": "What is the capital of Thailand and what is it known for?"
-  }]
-}'
+const payloads = {
+  rag: {
+    model,
+    messages: [
+      structuredMessage("Summarize these search results:", [
+        { id: 1, title: "Introduction to TOON Format", score: 0.91, url: "https://toonformat.dev/intro", snippet: "TOON is a compact encoding for uniform arrays of objects, reducing token count by up to 40%." },
+        { id: 2, title: "Cloudflare Workers Overview", score: 0.87, url: "https://workers.cloudflare.com", snippet: "Run code at the edge globally with sub-millisecond cold starts and zero server management." },
+        { id: 3, title: "LLM Token Cost Optimization", score: 0.84, url: "https://example.com/llm-costs", snippet: "Token costs add up fast at scale. Structured data compression is one of the most effective strategies." },
+        { id: 4, title: "RAG Pipeline Best Practices", score: 0.79, url: "https://example.com/rag", snippet: "Retrieval-augmented generation works best when chunks are uniform and well-structured." },
+        { id: 5, title: "Hono Framework for Workers", score: 0.76, url: "https://hono.dev", snippet: "Hono is a lightweight, ultrafast web framework designed for Cloudflare Workers and edge runtimes." },
+      ]),
+    ],
+  },
+  db: {
+    model,
+    messages: [
+      structuredMessage("Analyze this user data and identify patterns:", [
+        { user_id: 1001, name: "Alice Chen", plan: "pro", requests_today: 842, tokens_used: 124500, joined: "2024-01-15" },
+        { user_id: 1002, name: "Bob Smith", plan: "free", requests_today: 23, tokens_used: 4200, joined: "2024-03-01" },
+        { user_id: 1003, name: "Carol Lee", plan: "enterprise", requests_today: 5241, tokens_used: 892000, joined: "2023-11-20" },
+        { user_id: 1004, name: "David Kim", plan: "pro", requests_today: 312, tokens_used: 48900, joined: "2024-02-10" },
+        { user_id: 1005, name: "Eve Johnson", plan: "free", requests_today: 8, tokens_used: 1100, joined: "2024-04-05" },
+      ]),
+    ],
+  },
+  product: {
+    model,
+    messages: [
+      structuredMessage("Which products should I recommend to a developer?", [
+        { sku: "TOOL-001", name: "Claude API Access", category: "AI", price: 20.0, stock: 999, rating: 4.9 },
+        { sku: "TOOL-002", name: "GitHub Copilot", category: "AI", price: 19.0, stock: 999, rating: 4.7 },
+        { sku: "TOOL-003", name: "Vercel Pro", category: "Hosting", price: 20.0, stock: 999, rating: 4.8 },
+        { sku: "TOOL-004", name: "PlanetScale", category: "Database", price: 29.0, stock: 999, rating: 4.6 },
+        { sku: "TOOL-005", name: "Cloudflare Workers", category: "Edge", price: 5.0, stock: 999, rating: 4.9 },
+      ]),
+    ],
+  },
+  text: {
+    model,
+    messages: [{
+      role: "user",
+      content: "What is the capital of Thailand and what is it known for?",
+    }],
+  },
+};
 
-PAYLOADS=("$RAG_PAYLOAD" "$DB_PAYLOAD" "$PRODUCT_PAYLOAD" "$TEXT_PAYLOAD")
+for (const [name, payload] of Object.entries(payloads)) {
+  fs.writeFileSync(`${path}/${name}.json`, JSON.stringify(payload));
+}
+NODE
+
+PAYLOAD_FILES=("$PAYLOAD_DIR/rag.json" "$PAYLOAD_DIR/db.json" "$PAYLOAD_DIR/product.json" "$PAYLOAD_DIR/text.json")
 PAYLOAD_NAMES=("RAG chunks" "DB rows" "Product catalog" "Plain text (baseline)")
 
 # ── Run tests ────────────────────────────────────────────────
@@ -113,10 +126,9 @@ WORK_DIR=$(mktemp -d)
 run_request() {
   local idx=$1
   local payload_idx=$(( idx % 4 ))
-  local payload="${PAYLOADS[$payload_idx]}"
+  local payload_file="${PAYLOAD_FILES[$payload_idx]}"
   local outfile="$WORK_DIR/req_$idx.txt"
 
-  # Build auth header args
   local auth_args=()
   if [ -n "$PROXY_KEY" ]; then
     auth_args+=(-H "Authorization: Bearer $PROXY_KEY")
@@ -129,13 +141,12 @@ run_request() {
     -H "Accept: application/json" \
     "${auth_args[@]}" \
     -D "$WORK_DIR/headers_$idx.txt" \
-    -d "$payload" \
+    -d @"$payload_file" \
     --max-time 30 2>/dev/null)
 
   local http_code
   http_code=$(echo "$response" | tail -1)
 
-  # Parse toongate debug headers
   local compressed tokens_saved
   compressed=$(grep -i "x-toongate-compressed:" "$WORK_DIR/headers_$idx.txt" 2>/dev/null | tr -d '\r' | awk '{print $2}')
   tokens_saved=$(grep -i "x-toongate-tokens-saved:" "$WORK_DIR/headers_$idx.txt" 2>/dev/null | tr -d '\r' | awk '{print $2}')
@@ -143,7 +154,6 @@ run_request() {
   echo "${http_code}|${compressed:-false}|${tokens_saved:-0}" > "$outfile"
 }
 
-# Run with concurrency (batches of CONCURRENCY)
 active=0
 for i in $(seq 1 $REQUESTS); do
   run_request $i &
@@ -154,9 +164,8 @@ for i in $(seq 1 $REQUESTS); do
     active=0
   fi
 
-  # Progress bar
   pct=$(( i * 100 / REQUESTS ))
-  bar=$(printf '%0.s█' $(seq 1 $(( pct / 5 ))))
+  bar=$(printf '%0.s█' $(seq 1 $(( pct / 5 ))) 2>/dev/null)
   printf "\r  [%-20s] %3d%% (%d/%d)" "$bar" "$pct" "$i" "$REQUESTS"
 done
 wait
@@ -192,8 +201,8 @@ if [ $COMPRESSED -gt 0 ]; then
   AVG_SAVED=$(echo "scale=0; $TOTAL_SAVED / $COMPRESSED" | bc 2>/dev/null || echo "N/A")
 fi
 
-# Rough USD estimate (gpt-4o-mini input: $0.15/1M tokens)
-USD_SAVED=$(echo "scale=4; $TOTAL_SAVED * 0.00000015" | bc 2>/dev/null || echo "N/A")
+# Worker fallback pricing when model is unknown: $2.5/1M tokens
+USD_SAVED=$(echo "scale=4; $TOTAL_SAVED * 0.0000025" | bc 2>/dev/null || echo "N/A")
 
 echo -e "${BOLD}╔════════════════════════════════════════╗${RESET}"
 echo -e "${BOLD}║            Results Summary             ║${RESET}"
@@ -208,10 +217,9 @@ echo -e "  ${BOLD}Compression${RESET}"
 echo -e "  ├─ Compressed  : ${GREEN}$COMPRESSED / $PASS${RESET} requests (${COMPRESSION_RATE}%)"
 echo -e "  ├─ Tokens saved: ${CYAN}$TOTAL_SAVED${RESET} tokens"
 echo -e "  ├─ Avg/request : ${CYAN}$AVG_SAVED${RESET} tokens"
-echo -e "  └─ Est. USD    : ${GREEN}\$$USD_SAVED${RESET} (gpt-4o-mini pricing)"
+echo -e "  └─ Est. USD    : ${GREEN}\$$USD_SAVED${RESET} (worker default pricing)"
 echo ""
 
-# Payload breakdown
 echo -e "  ${BOLD}Payload types tested${RESET}"
 last_idx=$(( ${#PAYLOAD_NAMES[@]} - 1 ))
 for i in "${!PAYLOAD_NAMES[@]}"; do
@@ -265,7 +273,7 @@ fi
 curl -si -X POST "$WORKER_URL/v1/chat/completions" \
   -H "Content-Type: application/json" \
   "${sample_auth_args[@]}" \
-  -d "$RAG_PAYLOAD" \
+  -d @"$PAYLOAD_DIR/rag.json" \
   --max-time 30 2>/dev/null \
   | grep -i "x-toongate" \
   | tr -d '\r' \
@@ -276,7 +284,7 @@ curl -si -X POST "$WORKER_URL/v1/chat/completions" \
 echo ""
 
 # ── Cleanup ──────────────────────────────────────────────────
-rm -rf "$WORK_DIR"
+rm -rf "$WORK_DIR" "$PAYLOAD_DIR"
 
 # ── Final verdict ────────────────────────────────────────────
 
@@ -297,10 +305,10 @@ elif [ $FAIL -eq 0 ] && [ $COMPRESSED -eq 0 ]; then
 elif [ $FAIL -gt 0 ]; then
   echo -e "  ${RED}${BOLD}❌ Some requests failed (${FAIL}/${REQUESTS})${RESET}"
   if [ -n "$PROXY_KEY" ]; then
-    echo -e "  Check Worker URL and Cloudflare logs."
+    echo -e "  Check Worker URL, upstream API key, and Cloudflare logs."
   else
-    echo -e "  If PROXY_AUTH_KEY is set on the Worker, pass it as the 3rd argument:"
-    echo -e "  ${CYAN}./toongate-loadtest.sh $WORKER_URL \$ADMIN_KEY \$PROXY_AUTH_KEY${RESET}"
+    echo -e "  Pass PROXY_AUTH_KEY as the 3rd argument or env var:"
+    echo -e "  ${CYAN}PROXY_AUTH_KEY=xxx ./toongate-loadtest.sh $WORKER_URL${RESET}"
   fi
 fi
 

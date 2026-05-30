@@ -27,7 +27,7 @@ The request body follows the [Anthropic Messages API spec](https://docs.anthropi
 </ParamField>
 
 <ParamField body="messages" type="array" required>
-  Array of message objects. `content` fields containing uniform arrays of objects are eligible for TOON compression.
+  Array of message objects. `content` must be an array (not a plain string) for structured data to be eligible — use Anthropic content blocks with `{ type: "text", text: "..." }` parts.
 </ParamField>
 
 <ParamField body="max_tokens" type="number" required>

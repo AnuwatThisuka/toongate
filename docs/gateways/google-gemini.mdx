@@ -47,7 +47,10 @@ const response = await client.chat.completions.create({
   messages: [
     {
       role: "user",
-      content: "Summarize: " + JSON.stringify(myDataArray),
+      content: [
+        { type: "text", text: "Summarize:" },
+        { type: "text", text: JSON.stringify(myDataArray) },
+      ],
     },
   ],
 });

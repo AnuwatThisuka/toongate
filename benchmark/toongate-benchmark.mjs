@@ -4,25 +4,31 @@
 // Measures: Compression ratio, Latency overhead, Throughput
 //
 // Usage:
-//   node benchmark.mjs <worker-url> <direct-url> [admin-key]
+//   node toongate-benchmark.mjs <toongate-url> <direct-url> [admin-key] [proxy-key]
+//
+// Environment (fallback when CLI args omitted):
+//   PROXY_AUTH_KEY   — Bearer token for toongate proxy routes
+//   OPENAI_API_KEY   — Bearer token for direct upstream calls
 //
 // Example:
-//   node benchmark.mjs \
-//     https://toongate.workers.dev \
-//     https://api.openai.com \
-//     your-admin-key
+//   PROXY_AUTH_KEY=xxx OPENAI_API_KEY=sk-... \
+//     node toongate-benchmark.mjs \
+//       http://localhost:8787 \
+//       https://api.opentyphoon.ai
 //
 // Requirements: Node.js 18+
 // ============================================================
 
 const TOONGATE_URL = process.argv[2] || "http://localhost:8787";
-const DIRECT_URL = process.argv[3] || "https://api.openai.com";
-const ADMIN_KEY = process.argv[4] || "";
+const DIRECT_URL = process.argv[3] || "https://api.opentyphoon.ai";
+const ADMIN_KEY = process.argv[4] || process.env.ADMIN_KEY || "";
+const PROXY_KEY = process.argv[5] || process.env.PROXY_AUTH_KEY || "";
+const UPSTREAM_API_KEY = process.env.OPENAI_API_KEY || "";
 
 const WARMUP_REQUESTS = 5;
 const BENCH_REQUESTS = 50;
 const CONCURRENCY = 10;
-const MODEL = "gpt-4o-mini";
+const MODEL = "typhoon-v2.5-30b-a3b-instruct";
 
 // ── ANSI colors ──────────────────────────────────────────────
 const C = {
@@ -33,7 +39,6 @@ const C = {
   red: "\x1b[31m",
   yellow: "\x1b[33m",
   cyan: "\x1b[36m",
-  white: "\x1b[37m",
 };
 const bold = (s) => `${C.bold}${s}${C.reset}`;
 const green = (s) => `${C.green}${s}${C.reset}`;
@@ -42,157 +47,95 @@ const cyan = (s) => `${C.cyan}${s}${C.reset}`;
 const dim = (s) => `${C.dim}${s}${C.reset}`;
 const yellow = (s) => `${C.yellow}${s}${C.reset}`;
 
+// ── Payload helpers ──────────────────────────────────────────
+// content must be an array (not a plain string) for eligibility scoring.
+
+function structuredMessage(prompt, data) {
+  return {
+    role: "user",
+    content: [
+      { type: "text", text: prompt },
+      { type: "text", text: JSON.stringify(data) },
+    ],
+  };
+}
+
+const RAG_DATA = [
+  {
+    id: 1,
+    title: "TOON Format Intro",
+    score: 0.91,
+    url: "https://toonformat.dev/intro",
+    snippet:
+      "TOON encodes uniform arrays compactly, cutting tokens by up to 40%.",
+  },
+  {
+    id: 2,
+    title: "Cloudflare Workers",
+    score: 0.87,
+    url: "https://workers.cloudflare.com",
+    snippet: "Run code globally at the edge with sub-millisecond cold starts.",
+  },
+  {
+    id: 3,
+    title: "LLM Cost Optimization",
+    score: 0.84,
+    url: "https://example.com/llm",
+    snippet:
+      "Structured data compression is one of the best strategies at scale.",
+  },
+  {
+    id: 4,
+    title: "RAG Best Practices",
+    score: 0.79,
+    url: "https://example.com/rag",
+    snippet:
+      "Uniform, well-structured chunks are critical for good RAG performance.",
+  },
+  {
+    id: 5,
+    title: "Hono Edge Framework",
+    score: 0.76,
+    url: "https://hono.dev",
+    snippet: "Lightweight framework built specifically for Cloudflare Workers.",
+  },
+];
+
+const DB_DATA = Array.from({ length: 10 }, (_, i) => ({
+  user_id: 1000 + i,
+  name: `User ${i + 1}`,
+  plan: ["free", "pro", "enterprise"][i % 3],
+  requests_today: [842, 23, 5241, 312, 8, 1200, 3400, 56, 789, 2100][i],
+  tokens_used: [124500, 4200, 892000, 48900, 1100, 67000, 320000, 890, 145000, 89000][i],
+  joined: `2024-0${(i % 9) + 1}-01`,
+}));
+
+const PRODUCT_DATA = [
+  { sku: "T001", name: "Claude API", category: "AI", price: 20.0, stock: 999, rating: 4.9 },
+  { sku: "T002", name: "GitHub Copilot", category: "AI", price: 19.0, stock: 999, rating: 4.7 },
+  { sku: "T003", name: "Vercel Pro", category: "Hosting", price: 20.0, stock: 999, rating: 4.8 },
+  { sku: "T004", name: "PlanetScale", category: "Database", price: 29.0, stock: 999, rating: 4.6 },
+  { sku: "T005", name: "Cloudflare Workers", category: "Edge", price: 5.0, stock: 999, rating: 4.9 },
+  { sku: "T006", name: "Datadog", category: "Observability", price: 15.0, stock: 999, rating: 4.5 },
+  { sku: "T007", name: "Linear", category: "Project", price: 8.0, stock: 999, rating: 4.8 },
+  { sku: "T008", name: "Retool", category: "Tools", price: 10.0, stock: 999, rating: 4.4 },
+];
+
 // ── Payloads ─────────────────────────────────────────────────
 const PAYLOADS = {
   "RAG chunks (5 rows)": {
     model: MODEL,
-    messages: [
-      {
-        role: "user",
-        content:
-          "Summarize: " +
-          JSON.stringify([
-            {
-              id: 1,
-              title: "TOON Format Intro",
-              score: 0.91,
-              url: "https://toonformat.dev/intro",
-              snippet:
-                "TOON encodes uniform arrays compactly, cutting tokens by up to 40%.",
-            },
-            {
-              id: 2,
-              title: "Cloudflare Workers",
-              score: 0.87,
-              url: "https://workers.cloudflare.com",
-              snippet:
-                "Run code globally at the edge with sub-millisecond cold starts.",
-            },
-            {
-              id: 3,
-              title: "LLM Cost Optimization",
-              score: 0.84,
-              url: "https://example.com/llm",
-              snippet:
-                "Structured data compression is one of the best strategies at scale.",
-            },
-            {
-              id: 4,
-              title: "RAG Best Practices",
-              score: 0.79,
-              url: "https://example.com/rag",
-              snippet:
-                "Uniform, well-structured chunks are critical for good RAG performance.",
-            },
-            {
-              id: 5,
-              title: "Hono Edge Framework",
-              score: 0.76,
-              url: "https://hono.dev",
-              snippet:
-                "Lightweight framework built specifically for Cloudflare Workers.",
-            },
-          ]),
-      },
-    ],
+    messages: [structuredMessage("Summarize these search results:", RAG_DATA)],
   },
 
   "DB rows (10 rows)": {
     model: MODEL,
-    messages: [
-      {
-        role: "user",
-        content:
-          "Analyze this user data:\n" +
-          JSON.stringify(
-            Array.from({ length: 10 }, (_, i) => ({
-              user_id: 1000 + i,
-              name: `User ${i + 1}`,
-              plan: ["free", "pro", "enterprise"][i % 3],
-              requests_today: Math.floor(Math.random() * 5000),
-              tokens_used: Math.floor(Math.random() * 500000),
-              joined: `2024-0${(i % 9) + 1}-01`,
-            })),
-          ),
-      },
-    ],
+    messages: [structuredMessage("Analyze this user data:", DB_DATA)],
   },
 
   "Product catalog (8 rows)": {
     model: MODEL,
-    messages: [
-      {
-        role: "user",
-        content:
-          "Recommend products for a developer:\n" +
-          JSON.stringify([
-            {
-              sku: "T001",
-              name: "Claude API",
-              category: "AI",
-              price: 20.0,
-              stock: 999,
-              rating: 4.9,
-            },
-            {
-              sku: "T002",
-              name: "GitHub Copilot",
-              category: "AI",
-              price: 19.0,
-              stock: 999,
-              rating: 4.7,
-            },
-            {
-              sku: "T003",
-              name: "Vercel Pro",
-              category: "Hosting",
-              price: 20.0,
-              stock: 999,
-              rating: 4.8,
-            },
-            {
-              sku: "T004",
-              name: "PlanetScale",
-              category: "Database",
-              price: 29.0,
-              stock: 999,
-              rating: 4.6,
-            },
-            {
-              sku: "T005",
-              name: "Cloudflare Workers",
-              category: "Edge",
-              price: 5.0,
-              stock: 999,
-              rating: 4.9,
-            },
-            {
-              sku: "T006",
-              name: "Datadog",
-              category: "Observability",
-              price: 15.0,
-              stock: 999,
-              rating: 4.5,
-            },
-            {
-              sku: "T007",
-              name: "Linear",
-              category: "Project",
-              price: 8.0,
-              stock: 999,
-              rating: 4.8,
-            },
-            {
-              sku: "T008",
-              name: "Retool",
-              category: "Tools",
-              price: 10.0,
-              stock: 999,
-              rating: 4.4,
-            },
-          ]),
-      },
-    ],
+    messages: [structuredMessage("Recommend products for a developer:", PRODUCT_DATA)],
   },
 
   "Plain text (baseline)": {
@@ -208,6 +151,17 @@ const PAYLOADS = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────
+
+function buildHeaders(target) {
+  const headers = { "Content-Type": "application/json" };
+  if (target === "toongate" && PROXY_KEY) {
+    headers.Authorization = `Bearer ${PROXY_KEY}`;
+  }
+  if (target === "direct" && UPSTREAM_API_KEY) {
+    headers.Authorization = `Bearer ${UPSTREAM_API_KEY}`;
+  }
+  return headers;
+}
 
 function percentile(arr, p) {
   const sorted = [...arr].sort((a, b) => a - b);
@@ -228,12 +182,12 @@ function stats(arr) {
   };
 }
 
-async function sendRequest(baseUrl, payload, withToongate = true) {
+async function sendRequest(baseUrl, payload, target) {
   const start = performance.now();
   try {
     const res = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildHeaders(target),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(30000),
     });
@@ -253,7 +207,6 @@ async function sendRequest(baseUrl, payload, withToongate = true) {
       res.headers.get("x-toongate-eligibility-score") || "0",
     );
 
-    // Drain body (important for accurate timing)
     await res.text();
 
     return {
@@ -314,6 +267,17 @@ function printLastRow(label, value, unit = "", color = cyan) {
   );
 }
 
+// ── Preflight ────────────────────────────────────────────────
+
+if (!PROXY_KEY) {
+  console.warn(
+    yellow(
+      "\n  ⚠ PROXY_AUTH_KEY not set — toongate requests will return 401.\n" +
+        "    Pass as 5th arg or set PROXY_AUTH_KEY env var.\n",
+    ),
+  );
+}
+
 // ── Main ─────────────────────────────────────────────────────
 
 console.log(`
@@ -324,6 +288,8 @@ ${bold("╚═══════════════════════
   ${bold("Config")}
   ${dim("├─")} toongate URL : ${cyan(TOONGATE_URL)}
   ${dim("├─")} Direct URL   : ${cyan(DIRECT_URL)}
+  ${dim("├─")} Proxy auth   : ${PROXY_KEY ? green("set") : yellow("missing")}
+  ${dim("├─")} Upstream key : ${UPSTREAM_API_KEY ? green("set") : yellow("missing")}
   ${dim("├─")} Warmup       : ${WARMUP_REQUESTS} requests
   ${dim("├─")} Benchmark    : ${BENCH_REQUESTS} requests × ${Object.keys(PAYLOADS).length} payloads
   ${dim("└─")} Concurrency  : ${CONCURRENCY}
@@ -338,14 +304,12 @@ const compressionResults = {};
 for (const [name, payload] of Object.entries(PAYLOADS)) {
   process.stdout.write(`\n  ${name.padEnd(30)} `);
 
-  // Warmup
   for (let i = 0; i < WARMUP_REQUESTS; i++) {
-    await sendRequest(TOONGATE_URL, payload);
+    await sendRequest(TOONGATE_URL, payload, "toongate");
   }
 
-  // Bench
   const results = await runConcurrent(
-    () => sendRequest(TOONGATE_URL, payload),
+    () => sendRequest(TOONGATE_URL, payload, "toongate"),
     BENCH_REQUESTS,
     CONCURRENCY,
   );
@@ -361,7 +325,7 @@ for (const [name, payload] of Object.entries(PAYLOADS)) {
       ).toFixed(0)
     : 0;
   const avgPct =
-    compressed.length && ok[0]?.tokensBefore
+    compressed.length
       ? (
           (compressed.reduce(
             (s, r) => s + r.tokensSaved / (r.tokensBefore || 1),
@@ -383,8 +347,8 @@ for (const [name, payload] of Object.entries(PAYLOADS)) {
     avgElig,
   };
 
-  process.stdout.write(` ${green("done")}\n`);
-  printRow("Success rate", `${ok.length}/${results.length}`, "", green);
+  process.stdout.write(` ${ok.length ? green("done") : red("failed")}\n`);
+  printRow("Success rate", `${ok.length}/${results.length}`, "", ok.length ? green : red);
   printRow(
     "Compressed",
     `${compressed.length}/${ok.length} (${ratio}%)`,
@@ -406,28 +370,25 @@ const latencyResults = {};
 for (const [name, payload] of Object.entries(PAYLOADS)) {
   process.stdout.write(`  ${name.padEnd(30)} `);
 
-  // Warmup both
   await Promise.all([
     ...Array(WARMUP_REQUESTS)
       .fill(0)
-      .map(() => sendRequest(TOONGATE_URL, payload, true)),
+      .map(() => sendRequest(TOONGATE_URL, payload, "toongate")),
     ...Array(WARMUP_REQUESTS)
       .fill(0)
-      .map(() => sendRequest(DIRECT_URL, payload, false)),
+      .map(() => sendRequest(DIRECT_URL, payload, "direct")),
   ]);
 
-  // Bench toongate
   process.stdout.write("toongate");
   const tgResults = await runConcurrent(
-    () => sendRequest(TOONGATE_URL, payload),
+    () => sendRequest(TOONGATE_URL, payload, "toongate"),
     BENCH_REQUESTS,
     CONCURRENCY,
   );
 
-  // Bench direct
   process.stdout.write(" direct");
   const drResults = await runConcurrent(
-    () => sendRequest(DIRECT_URL, payload),
+    () => sendRequest(DIRECT_URL, payload, "direct"),
     BENCH_REQUESTS,
     CONCURRENCY,
   );
@@ -474,33 +435,29 @@ console.log(
   ),
 );
 
-// Pick RAG payload (most realistic)
 const tpPayload = PAYLOADS["RAG chunks (5 rows)"];
 
-// Warmup
 process.stdout.write("  Warmup ");
 for (let i = 0; i < WARMUP_REQUESTS; i++) {
-  await sendRequest(TOONGATE_URL, tpPayload);
+  await sendRequest(TOONGATE_URL, tpPayload, "toongate");
   process.stdout.write(".");
 }
 console.log();
 
-// Toongate throughput
 process.stdout.write("  toongate ");
 const tgStart = performance.now();
 const tgTpResults = await runConcurrent(
-  () => sendRequest(TOONGATE_URL, tpPayload),
+  () => sendRequest(TOONGATE_URL, tpPayload, "toongate"),
   BENCH_REQUESTS * 2,
   CONCURRENCY,
 );
 const tgDuration = (performance.now() - tgStart) / 1000;
 const tgRps = (tgTpResults.filter((r) => r.ok).length / tgDuration).toFixed(1);
 
-// Direct throughput
 process.stdout.write("\n  direct   ");
 const drStart = performance.now();
 const drTpResults = await runConcurrent(
-  () => sendRequest(DIRECT_URL, tpPayload),
+  () => sendRequest(DIRECT_URL, tpPayload, "direct"),
   BENCH_REQUESTS * 2,
   CONCURRENCY,
 );
@@ -510,9 +467,12 @@ const drRps = (drTpResults.filter((r) => r.ok).length / drDuration).toFixed(1);
 console.log(`\n`);
 printRow("toongate req/s", tgRps, "req/s", green);
 printRow("direct req/s", drRps, "req/s");
+const drRpsNum = parseFloat(drRps);
 printLastRow(
   "overhead",
-  `${((tgRps / drRps - 1) * 100).toFixed(1)}%`,
+  drRpsNum > 0
+    ? `${((parseFloat(tgRps) / drRpsNum - 1) * 100).toFixed(1)}%`
+    : "N/A",
   "",
   yellow,
 );

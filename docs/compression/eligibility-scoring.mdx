@@ -13,16 +13,19 @@ The score is always returned in the `X-Toongate-Eligibility-Score` response head
 
 ## What the scorer measures
 
-The scorer analyzes the `messages[].content` fields in the request body and looks for:
+The scorer analyzes the `messages[].content` fields in the request body. **Plain strings always score `0.0`** — structured data must be passed as a content array (OpenAI multimodal format), not embedded in a string.
+
+It looks for:
 
 | Signal | Weight |
 |---|---|
+| **Content type** — array/object content scores; plain strings do not | High |
 | **Uniformity** — do all array objects share the same keys? | High |
 | **Array length** — more rows = more benefit from TOON | Medium |
 | **Value types** — scalar values (strings, numbers, booleans) compress better than nested objects | Medium |
 | **Key count** — more fields = more repetition saved | Low |
 
-A payload that is a 50-row uniform array of flat objects scores close to `1.0`. A single free-form text message scores `0.0`.
+A payload with `content` as an array of uniform objects scores close to `1.0`. A single free-form text message (plain string `content`) scores `0.0`.
 
 ---
 

@@ -75,15 +75,22 @@ Mixed content — prompts that combine structured tables with free-form text sec
 
 ## Tips to maximize savings
 
-**1. Keep arrays at the top level of message content**
+**1. Use a content array — not a plain string**
 
-toongate looks for arrays in the `messages[].content` fields. Nesting arrays deeply inside strings won't be compressed.
+The eligibility scorer inspects `messages[].content` as structured data. Plain strings always score `0.0` and pass through unchanged — even if they contain JSON text.
 
 ```typescript
-// ✅ Good — array in content, toongate can find it
-{ role: "user", content: JSON.stringify(myDataArray) }
+// ✅ Good — content is an array (OpenAI multimodal format)
+{
+  role: "user",
+  content: [
+    { type: "text", text: "Summarize these search results:" },
+    { type: "text", text: JSON.stringify(myDataArray) },
+  ],
+}
 
-// ❌ Less effective — buried in a template string
+// ❌ Won't compress — plain string scores 0.0
+{ role: "user", content: JSON.stringify(myDataArray) }
 { role: "user", content: `Here is the data: ${JSON.stringify(myDataArray)} please analyze` }
 ```
 
@@ -122,16 +129,25 @@ The TOON header (`{field1,field2,...}[N]`) is a fixed overhead. The more rows yo
 After any request, check the response headers:
 
 ```bash
-curl -I https://toongate.workers.dev/v1/chat/completions \
-  -H "X-API-Key: vx_..." \
-  -d '...'
+curl -si https://toongate.workers.dev/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PROXY_AUTH_KEY" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{
+      "role": "user",
+      "content": [
+        { "type": "text", "text": "Summarize:" },
+        { "type": "text", "text": "[{\"id\":1,\"title\":\"A\",\"score\":0.9}]" }
+      ]
+    }]
+  }' | grep -i x-toongate
 
-# Response headers:
-X-Toongate-Compressed: true
-X-Toongate-Tokens-Before: 1420
-X-Toongate-Tokens-After: 851
-X-Toongate-Tokens-Saved: 569
-X-Toongate-Eligibility-Score: 0.84
+# x-toongate-compressed: true
+# x-toongate-tokens-before: 1420
+# x-toongate-tokens-after: 851
+# x-toongate-tokens-saved: 569
+# x-toongate-eligibility-score: 0.84
 ```
 
 If `X-Toongate-Compressed: false` with a low eligibility score, your payload is free-form text and there's nothing to compress — that's expected and correct.

@@ -306,15 +306,16 @@ Two scripts are available in `benchmark/`:
 | `toongate-benchmark.mjs` | Full benchmark — compression ratio, latency overhead vs direct, throughput (req/s) |
 
 ```bash
-# Load test (bash)
+# Load test (bash) — PROXY_AUTH_KEY required (arg or env)
 chmod +x benchmark/toongate-loadtest.sh
-benchmark/toongate-loadtest.sh http://localhost:8787                          # local
-benchmark/toongate-loadtest.sh https://toongate.workers.dev <admin> <proxy>  # production
+PROXY_AUTH_KEY=xxx benchmark/toongate-loadtest.sh http://localhost:8787
+benchmark/toongate-loadtest.sh https://toongate.workers.dev <admin> <proxy>
 
 # Benchmark suite (Node.js 18+)
-node benchmark/toongate-benchmark.mjs <toongate-url> <direct-url> [admin-key]
-# Example:
-node benchmark/toongate-benchmark.mjs https://toongate.workers.dev https://api.openai.com my-admin-key
+# Args: <toongate-url> <direct-url> [admin-key] [proxy-key]
+# Env:  PROXY_AUTH_KEY, OPENAI_API_KEY (for direct upstream latency/throughput)
+PROXY_AUTH_KEY=xxx OPENAI_API_KEY=sk-... \
+  node benchmark/toongate-benchmark.mjs http://localhost:8787 https://api.opentyphoon.ai
 ```
 
 ---

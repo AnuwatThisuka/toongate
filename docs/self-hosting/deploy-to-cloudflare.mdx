@@ -26,7 +26,7 @@ Wrangler outputs your Worker URL — something like `https://toongate.<your-subd
 wrangler secret put OPENAI_API_KEY
 wrangler secret put ANTHROPIC_API_KEY   # if using Anthropic
 wrangler secret put ADMIN_KEY           # protects /savings/* routes
-# wrangler secret put PROXY_AUTH_KEY   # optional — protects /v1/* proxy routes
+wrangler secret put PROXY_AUTH_KEY      # required — protects /v1/* proxy routes
 ```
 
 <Warning>
@@ -49,19 +49,20 @@ Add `toongate.yourdomain.com` and update your app's `baseURL`.
 # Health check
 curl https://toongate.<subdomain>.workers.dev/health
 
-# Test compression
-curl -s https://toongate.<subdomain>.workers.dev/v1/chat/completions \
+# Test compression (plain text — expect no compression)
+curl -si https://toongate.<subdomain>.workers.dev/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PROXY_AUTH_KEY" \
   -d '{
     "model": "gpt-4o-mini",
     "messages": [{
       "role": "user",
       "content": "hello"
     }]
-  }' -I | grep x-toongate
+  }' | grep -i x-toongate
 
 # Expected:
-# x-toongate-compressed: false   (plain text, no array to compress)
+# x-toongate-compressed: false   (plain string, scores 0.0)
 # x-toongate-eligibility-score: 0.0
 ```
 
@@ -74,10 +75,8 @@ Run the included load test script to verify compression is working end-to-end:
 ```bash
 chmod +x benchmark/toongate-loadtest.sh
 
-# Without proxy auth
-benchmark/toongate-loadtest.sh https://toongate.<subdomain>.workers.dev <admin-key>
-
-# With PROXY_AUTH_KEY set
+# PROXY_AUTH_KEY required (arg or env)
+PROXY_AUTH_KEY=xxx benchmark/toongate-loadtest.sh https://toongate.<subdomain>.workers.dev
 benchmark/toongate-loadtest.sh https://toongate.<subdomain>.workers.dev <admin-key> <proxy-key>
 ```
 
@@ -86,10 +85,12 @@ The script sends 100 requests across 4 payload types and prints a summary with c
 For a full benchmark (compression ratio, latency overhead vs direct, throughput):
 
 ```bash
-node benchmark/toongate-benchmark.mjs \
-  https://toongate.<subdomain>.workers.dev \
-  https://api.openai.com \
-  <admin-key>
+PROXY_AUTH_KEY=xxx OPENAI_API_KEY=sk-... \
+  node benchmark/toongate-benchmark.mjs \
+    https://toongate.<subdomain>.workers.dev \
+    https://api.openai.com \
+    <admin-key> \
+    <proxy-key>
 ```
 
 ---

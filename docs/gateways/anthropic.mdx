@@ -24,7 +24,10 @@ const message = await client.messages.create({
   messages: [
     {
       role: "user",
-      content: "Summarize these records: " + JSON.stringify(myDataArray),
+      content: [
+        { type: "text", text: "Summarize these records:" },
+        { type: "text", text: JSON.stringify(myDataArray) },
+      ],
     },
   ],
 });
