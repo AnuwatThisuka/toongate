@@ -57,8 +57,7 @@ async function proxy(
   const threshold = resolveThreshold(env, endpoint);
 
   const result = compressRequestBody(body, bodyText, threshold);
-  const outBodyText =
-    env.TOON_DRY_RUN === "true" ? bodyText : result.bodyText;
+  const outBodyText = env.TOON_DRY_RUN === "true" ? bodyText : result.bodyText;
 
   if (env.TOON_DRY_RUN === "true" && result.compressed) {
     console.log(
@@ -130,7 +129,8 @@ async function proxy(
         const content = choice?.message?.content;
         if (typeof content === "string") {
           const decoded = decodeFromToon(content);
-          choice.message.content = typeof decoded === "string" ? decoded : content;
+          choice.message.content =
+            typeof decoded === "string" ? decoded : content;
         }
       }
     }
@@ -139,7 +139,10 @@ async function proxy(
       headers: respHeaders,
     });
   } catch {
-    return new Response(respText, { status: response.status, headers: respHeaders });
+    return new Response(respText, {
+      status: response.status,
+      headers: respHeaders,
+    });
   }
 }
 
