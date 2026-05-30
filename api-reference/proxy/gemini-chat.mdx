@@ -1,0 +1,77 @@
+---
+title: "POST /gemini/v1/chat/completions"
+api: "POST https://toongate.workers.dev/gemini/v1/chat/completions"
+description: Google Gemini chat completions via OpenAI-compatible endpoint with TOON compression.
+---
+
+## Overview
+
+Proxies to Gemini's OpenAI-compatible endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`) or a custom `GEMINI_UPSTREAM_URL`. The request and response schema is identical to OpenAI.
+
+## Authorization
+
+<ParamField header="Authorization" type="string">
+  Required only when `PROXY_AUTH_KEY` is set on the Worker. Pass `Bearer <PROXY_AUTH_KEY>` to authenticate to toongate itself. `GEMINI_API_KEY` is injected automatically as `Authorization: Bearer` to the upstream — you do not need to set it.
+</ParamField>
+
+## Request body
+
+<ParamField body="model" type="string" required>
+  Gemini model ID (e.g. `gemini-2.0-flash`, `gemini-2.5-pro`).
+</ParamField>
+
+<ParamField body="messages" type="array" required>
+  Array of message objects. `content` fields containing uniform arrays of objects are eligible for TOON compression.
+</ParamField>
+
+<ParamField body="stream" type="boolean">
+  When `true`, returns SSE events. toongate compresses the request and passes chunks back as-is.
+</ParamField>
+
+## Response headers
+
+| Header | Description |
+|---|---|
+| `X-Toongate-Compressed` | `true` if the request payload was compressed |
+| `X-Toongate-Tokens-Before` | Estimated token count before compression |
+| `X-Toongate-Tokens-After` | Estimated token count after compression |
+| `X-Toongate-Tokens-Saved` | Tokens saved |
+| `X-Toongate-Eligibility-Score` | Eligibility score (0–1) |
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/gemini/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-2.0-flash",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Summarize: [{\"id\":1,\"title\":\"A\",\"score\":0.9},{\"id\":2,\"title\":\"B\",\"score\":0.8}]"
+      }
+    ]
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "model": "gemini-2.0-flash",
+  "choices": [
+    {
+      "message": { "role": "assistant", "content": "..." },
+      "finish_reason": "stop",
+      "index": 0
+    }
+  ],
+  "usage": { "prompt_tokens": 47, "completion_tokens": 32, "total_tokens": 79 }
+}
+```
+
+```json 503
+{ "error": "Gemini is not configured" }
+```
+</ResponseExample>

@@ -1,72 +1,130 @@
 ---
 title: Google Gemini
-description: Use toongate in front of Google Gemini via the OpenAI-compatible endpoint.
+description: Use toongate in front of Google Gemini via its OpenAI-compatible endpoint.
+---
+
+## How it works
+
+toongate exposes a dedicated prefix `/gemini/v1/*` for Google Gemini. It targets Gemini's [OpenAI-compatible endpoint](https://ai.google.dev/gemini-api/docs/openai), so the request and response schema is identical to OpenAI — no transformation needed.
+
+```
+Your App  →  toongate /gemini/v1/chat/completions  →  generativelanguage.googleapis.com/v1beta/openai/chat/completions
+```
+
+Vertex AI is also supported via `GEMINI_UPSTREAM_URL`.
+
 ---
 
 ## Setup
 
-Google provides an OpenAI-compatible endpoint for Gemini models. Point `UPSTREAM_URL` at it:
-
 ```bash
-UPSTREAM_URL=https://generativelanguage.googleapis.com/v1beta/openai
-OPENAI_API_KEY=<your-gemini-api-key>
+wrangler secret put GEMINI_API_KEY       # Google AI Studio API key
+# Optional — for Vertex AI or other custom upstream:
+wrangler secret put GEMINI_UPSTREAM_URL
 ```
+
+For local development, add them to `.dev.vars`:
+
+```ini
+GEMINI_API_KEY=AIza...
+# GEMINI_UPSTREAM_URL=  # leave blank to use the default Gemini endpoint
+```
+
+---
+
+## Usage
 
 ```typescript
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  baseURL: "https://toongate.workers.dev/v1",
+const client = new OpenAI({
+  baseURL: "https://toongate.workers.dev/gemini/v1",
+  apiKey: "unused", // toongate injects GEMINI_API_KEY automatically
 });
 
-const response = await openai.chat.completions.create({
+const response = await client.chat.completions.create({
   model: "gemini-2.0-flash",
-  messages: [{ role: "user", content: "Hello" }],
+  messages: [
+    {
+      role: "user",
+      content: "Summarize: " + JSON.stringify(myDataArray),
+    },
+  ],
 });
 ```
-
-toongate compresses the payload and forwards to the Gemini endpoint. Your Gemini API key is injected as `Authorization: Bearer`.
 
 ---
 
 ## Supported routes
 
-| toongate route | Description |
-|---|---|
-| `POST /v1/chat/completions` | Gemini chat (via OpenAI-compatible endpoint) |
-| `POST /v1/embeddings` | Gemini embeddings |
+| Method | toongate path | Gemini upstream |
+|--------|--------------|-----------------|
+| `POST` | `/gemini/v1/chat/completions` | `{upstream}/chat/completions` |
+| `POST` | `/gemini/v1/embeddings` | `{upstream}/embeddings` |
+
+Default upstream: `https://generativelanguage.googleapis.com/v1beta/openai`
 
 ---
 
-## Model names
+## Authentication
 
-Use the Gemini model names directly — they pass through to the upstream unchanged:
+toongate injects `GEMINI_API_KEY` as `Authorization: Bearer` on every request. You do not need to pass any auth headers from your SDK.
+
+---
+
+## Streaming
+
+Streaming (`stream: true`) is fully supported:
 
 ```typescript
-// Gemini 2.0 Flash
-{ model: "gemini-2.0-flash" }
+const stream = await client.chat.completions.create({
+  model: "gemini-2.0-flash",
+  messages: [{ role: "user", content: "..." }],
+  stream: true,
+});
 
-// Gemini 1.5 Pro
-{ model: "gemini-1.5-pro" }
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+}
 ```
-
----
-
-## Compression notes
-
-Gemini models understand TOON format the same way GPT and Claude models do. Eligibility scoring and compression behavior is identical to other providers.
-
-For embeddings with large batches of uniform input objects, toongate can meaningfully reduce the token count sent to the Gemini embedding endpoint.
 
 ---
 
 ## Vertex AI
 
-If you're using Gemini via Vertex AI rather than the generative language API, set `UPSTREAM_URL` to your Vertex AI endpoint:
+To use toongate with Vertex AI's OpenAI-compatible endpoint:
 
 ```bash
-UPSTREAM_URL=https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/endpoints/openapi
-OPENAI_API_KEY=<vertex-access-token>
+wrangler secret put GEMINI_UPSTREAM_URL
+# e.g. https://us-central1-aiplatform.googleapis.com/v1/projects/{project}/locations/us-central1/endpoints/openapi
+# GEMINI_API_KEY can be left empty — Vertex handles auth at the network level
 ```
 
-Authentication for Vertex AI typically requires a short-lived access token — manage token refresh outside of toongate and update `OPENAI_API_KEY` (or pass as a header from your SDK).
+```typescript
+const client = new OpenAI({
+  baseURL: "https://toongate.workers.dev/gemini/v1",
+  apiKey: "unused",
+});
+```
+
+---
+
+## Per-route threshold
+
+Gemini routes share the same threshold knobs as OpenAI:
+
+```bash
+TOON_THRESHOLD_CHAT=0.5        # applies to /gemini/v1/chat/completions
+TOON_THRESHOLD_EMBEDDINGS=0.8  # applies to /gemini/v1/embeddings
+```
+
+---
+
+## Error responses
+
+| Status | Condition |
+|--------|-----------|
+| `401` | `PROXY_AUTH_KEY` is set but the request is missing or has a wrong `Authorization: Bearer` header |
+| `503` | Neither `GEMINI_API_KEY` nor `GEMINI_UPSTREAM_URL` is configured |
+| `504` | Upstream did not respond within `UPSTREAM_TIMEOUT_MS` (default 30 s) |
+| `502` | Any other upstream fetch error |

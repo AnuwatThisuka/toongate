@@ -4,6 +4,13 @@ interface Env {
   UPSTREAM_URL: string;
   OPENAI_API_KEY: string;
   ANTHROPIC_API_KEY: string;
+  // Azure OpenAI — set via `wrangler secret put`
+  AZURE_OPENAI_API_KEY: string;
+  AZURE_OPENAI_ENDPOINT: string;    // e.g. https://{resource}.openai.azure.com
+  AZURE_OPENAI_API_VERSION: string; // default: 2024-02-01
+  // Gemini — set via `wrangler secret put`
+  GEMINI_API_KEY: string;
+  GEMINI_UPSTREAM_URL: string;      // override for Vertex AI; default: https://generativelanguage.googleapis.com/v1beta/openai
   TOON_THRESHOLD: string;
   TOON_THRESHOLD_MESSAGES: string;
   TOON_THRESHOLD_CHAT: string;
