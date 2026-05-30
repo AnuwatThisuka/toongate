@@ -17,6 +17,7 @@ description: Deploy toongate and make your first compressed request in under 5 m
 git clone https://github.com/anuwatthisuka/toongate
 cd toongate
 npm install
+cp wrangler.jsonc.example wrangler.jsonc
 ```
 
 ---
@@ -39,6 +40,10 @@ Copy the `database_id` from the output and paste it into `wrangler.jsonc`:
   }
 ]
 ```
+
+<Note>
+  `wrangler.jsonc` is listed in `.gitignore` (it contains your database ID). The repo ships `wrangler.jsonc.example` as the template — the `cp` command in step 1 creates your local copy.
+</Note>
 
 ---
 

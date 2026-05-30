@@ -7,6 +7,10 @@ description: Deploy toongate globally on Cloudflare Workers in under 5 minutes.
 
 After completing [local setup](/docs/getting-started/quickstart), deploy with:
 
+<Note>
+  Make sure `wrangler.jsonc` exists before deploying. If you haven't copied the template yet: `cp wrangler.jsonc.example wrangler.jsonc` — then fill in your `database_id`.
+</Note>
+
 ```bash
 npm run db:migrate:remote
 npm run deploy
