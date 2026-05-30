@@ -12,8 +12,8 @@ The response is identical to what OpenAI returns — including streaming SSE whe
 
 ## Authorization
 
-<ParamField header="Authorization" type="string" required>
-  `Bearer <key>`. toongate injects `OPENAI_API_KEY` automatically — you may pass your key here or rely on the injected value.
+<ParamField header="Authorization" type="string">
+  Required only when `PROXY_AUTH_KEY` is set on the Worker. Pass `Bearer <PROXY_AUTH_KEY>` to authenticate to toongate itself. The upstream OpenAI key (`OPENAI_API_KEY`) is always injected automatically — you do not need to pass it.
 </ParamField>
 
 ## Request body

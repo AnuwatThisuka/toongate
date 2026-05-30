@@ -10,6 +10,10 @@ Proxies to the Anthropic Messages API (`https://api.anthropic.com/v1/messages`).
 
 ## Authorization
 
+<ParamField header="Authorization" type="string">
+  Required only when `PROXY_AUTH_KEY` is set on the Worker. Pass `Bearer <PROXY_AUTH_KEY>` to authenticate to toongate itself.
+</ParamField>
+
 <ParamField header="x-api-key" type="string">
   Anthropic API key. toongate injects `ANTHROPIC_API_KEY` automatically — you may omit this header.
 </ParamField>
