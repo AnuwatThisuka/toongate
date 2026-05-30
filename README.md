@@ -261,10 +261,11 @@ migrations/
 ## Development
 
 ```bash
-npm test          # vitest unit tests (encoder, decoder, eligibility, auth middleware)
+npm test                  # vitest unit tests (encoder, decoder, eligibility, auth middleware)
 npm run test:watch
-npm run lint      # tsc --noEmit typecheck
-npm run types     # regenerate wrangler type bindings → src/worker.d.ts
+npm run lint              # tsc --noEmit typecheck
+npm run types             # regenerate wrangler type bindings → src/worker.d.ts
+npm run generate:pricing  # fetch latest model prices from LiteLLM → src/lib/pricing.ts
 ```
 
 ---

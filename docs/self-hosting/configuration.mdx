@@ -52,6 +52,21 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 
 ---
 
+---
+
+## Updating model pricing
+
+The USD savings estimate in the savings dashboard uses a static pricing table bundled at deploy time. To refresh it with the latest prices from [LiteLLM's model registry](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json):
+
+```bash
+npm run generate:pricing  # fetches latest prices → src/lib/pricing.ts
+npm run deploy
+```
+
+Run this whenever new models are added or prices change. The table covers 245+ models across OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, and Cohere.
+
+---
+
 ## Threshold tuning guide
 
 Not sure what threshold to use? Start with dry-run mode:
