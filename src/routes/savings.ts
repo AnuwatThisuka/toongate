@@ -3,6 +3,15 @@ import { adminAuth } from "../middleware/admin-auth";
 
 const app = new Hono<{ Bindings: Env }>();
 
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 app.use("*", adminAuth);
 
 // GET /savings/summary — aggregate totals grouped by model
@@ -46,8 +55,10 @@ app.get("/savings/history", async (c) => {
   const db = c.env.DB;
   if (!db) return c.json({ error: "DB binding not configured" }, 503);
 
-  const limit = Math.min(Number(c.req.query("limit") ?? 50), 500);
-  const offset = Math.max(Number(c.req.query("offset") ?? 0), 0);
+  const rawLimit = parseInt(c.req.query("limit") ?? "50", 10);
+  const rawOffset = parseInt(c.req.query("offset") ?? "0", 10);
+  const limit = Math.min(isNaN(rawLimit) ? 50 : Math.max(rawLimit, 1), 500);
+  const offset = isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
 
   const result = await db
     .prepare(
@@ -187,7 +198,7 @@ app.get("/savings/dashboard", async (c) => {
   const barRows = dailyRows
     .map((r) => {
       const pct = Math.round((r.tokens_saved / maxTokens) * 100);
-      const label = r.day.slice(5); // MM-DD
+      const label = escHtml(r.day.slice(5)); // MM-DD
       const loClass = pct < 10 ? " lo" : "";
       return `<div class="bar-row">
         <span class="bar-day">${label}</span>
@@ -200,7 +211,7 @@ app.get("/savings/dashboard", async (c) => {
   const modelRows = (byModel.results ?? [])
     .map(
       (m) => `<tr>
-      <td><div class="model-name"><div class="model-dot"></div><span class="hi">${m.model}</span></div></td>
+      <td><div class="model-name"><div class="model-dot"></div><span class="hi">${escHtml(m.model)}</span></div></td>
       <td class="r">${fmt(m.requests)}</td>
       <td class="r">${fmt(m.total_tokens_saved)}</td>
       <td class="r hi">$${m.total_usd_saved.toFixed(4)}</td>

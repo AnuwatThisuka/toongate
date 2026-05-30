@@ -80,11 +80,11 @@ describe("admin auth middleware (/savings/*)", () => {
 });
 
 describe("proxy auth middleware (/v1/*)", () => {
-  it("passes through when PROXY_AUTH_KEY not set", async () => {
+  it("returns 401 when PROXY_AUTH_KEY not set (fail-closed)", async () => {
     const env = makeEnv({ PROXY_AUTH_KEY: "" });
     const app = buildProxyApp(env);
     const res = await req(app, "/v1/test", env);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
   });
 
   it("returns 401 when PROXY_AUTH_KEY set but missing from request", async () => {

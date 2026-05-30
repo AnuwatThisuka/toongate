@@ -33,7 +33,8 @@ function buildUpstreamHeaders(c: Context<{ Bindings: Env }>): Headers {
 }
 
 function getTimeout(env: Env): number {
-  return parseInt(env.UPSTREAM_TIMEOUT_MS ?? "30000", 10);
+  const ms = parseInt(env.UPSTREAM_TIMEOUT_MS ?? "30000", 10);
+  return isNaN(ms) ? 30000 : ms;
 }
 
 async function proxy(
@@ -93,7 +94,7 @@ async function proxy(
 
   const elapsed = Date.now() - start;
 
-  if (env.TOON_LOG_SAVINGS === "true") {
+  if (env.TOON_LOG_SAVINGS === "true" && env.DB) {
     writeSavings(
       env.DB,
       {
@@ -124,9 +125,14 @@ async function proxy(
   const respText = await response.text();
   try {
     const respJson = JSON.parse(respText);
-    const content = respJson?.choices?.[0]?.message?.content;
-    if (typeof content === "string") {
-      respJson.choices[0].message.content = decodeFromToon(content);
+    if (Array.isArray(respJson?.choices)) {
+      for (const choice of respJson.choices) {
+        const content = choice?.message?.content;
+        if (typeof content === "string") {
+          const decoded = decodeFromToon(content);
+          choice.message.content = typeof decoded === "string" ? decoded : content;
+        }
+      }
     }
     return new Response(JSON.stringify(respJson), {
       status: response.status,
@@ -166,7 +172,7 @@ async function fetchUpstream(
   }
   clearTimeout(timer);
 
-  if (env.TOON_LOG_SAVINGS === "true") {
+  if (env.TOON_LOG_SAVINGS === "true" && env.DB) {
     writeSavings(
       env.DB,
       {
@@ -183,9 +189,11 @@ async function fetchUpstream(
     );
   }
 
+  const respHeaders = new Headers(response.headers);
+  respHeaders.delete("content-encoding");
   return new Response(response.body, {
     status: response.status,
-    headers: new Headers(response.headers),
+    headers: respHeaders,
   });
 }
 
