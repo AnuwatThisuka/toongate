@@ -17,6 +17,8 @@ function buildUpstreamHeaders(c: Context<{ Bindings: Env }>): Headers {
   const headers = new Headers(c.req.raw.headers);
   headers.set("Authorization", `Bearer ${c.env.OPENAI_API_KEY}`);
   headers.delete("content-length");
+  // Strip toongate-internal headers — never forward to upstream
+  headers.delete("x-toongate-admin-key");
 
   if (c.env.CF_AIG_TOKEN) {
     const tok = c.env.CF_AIG_TOKEN.startsWith("Bearer ")

@@ -28,6 +28,7 @@ function buildSavingsApp(env: Env) {
   const app = new Hono<{ Bindings: Env }>();
   app.use("*", adminAuth);
   app.get("/savings/summary", (c) => c.json({ ok: true }));
+  app.get("/savings/by-model", (c) => c.json({ rows: [] }));
   return app;
 }
 
@@ -100,6 +101,33 @@ describe("proxy auth middleware (/v1/*)", () => {
     const app = buildProxyApp(env);
     const res = await req(app, "/v1/test", env, {
       Authorization: "Bearer mykey",
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("GET /savings/by-model", () => {
+  it("returns 404 when ADMIN_KEY not set", async () => {
+    const env = makeEnv({ ADMIN_KEY: "" });
+    const app = buildSavingsApp(env);
+    const res = await req(app, "/savings/by-model", env);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 401 with wrong key", async () => {
+    const env = makeEnv({ ADMIN_KEY: "secret" });
+    const app = buildSavingsApp(env);
+    const res = await req(app, "/savings/by-model", env, {
+      "X-Toongate-Admin-Key": "wrong",
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 200 with correct key", async () => {
+    const env = makeEnv({ ADMIN_KEY: "secret" });
+    const app = buildSavingsApp(env);
+    const res = await req(app, "/savings/by-model", env, {
+      "X-Toongate-Admin-Key": "secret",
     });
     expect(res.status).toBe(200);
   });
