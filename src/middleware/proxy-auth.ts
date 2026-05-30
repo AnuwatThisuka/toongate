@@ -5,8 +5,7 @@ export const proxyAuth = createMiddleware<{ Bindings: Env }>(async (c, next) => 
   const proxyKey = c.env.PROXY_AUTH_KEY;
 
   if (!proxyKey) {
-    await next();
-    return;
+    return c.json({ error: "unauthorized" }, 401);
   }
 
   const authHeader = c.req.header("Authorization") ?? "";
