@@ -127,14 +127,21 @@ All configuration is via environment variables. In production, set secrets with 
 
 | Variable | Example | Description |
 | --- | --- | --- |
-| `UPSTREAM_URL` | `https://api.openai.com/v1` | Upstream base URL. See `.dev.vars.example` for all gateway options. |
-| `OPENAI_API_KEY` | `sk-...` | Injected as `Authorization: Bearer` on OpenAI routes. |
-| `ANTHROPIC_API_KEY` | `sk-ant-...` | Injected as `x-api-key` on Anthropic routes. |
-| `CF_AIG_TOKEN` | `vck_...` | Cloudflare AI Gateway auth token. Accepts bare token or `Bearer token` — normalized automatically. Leave empty if gateway auth is disabled. |
+| `UPSTREAM_URL` | `https://api.openai.com/v1` | Upstream base URL for `/v1/*` (OpenAI / Anthropic) routes. See `.dev.vars.example` for all options. |
+| `OPENAI_API_KEY` | `sk-...` | Injected as `Authorization: Bearer` on `/v1/*` OpenAI routes. |
+| `ANTHROPIC_API_KEY` | `sk-ant-...` | Injected as `x-api-key` on `/v1/messages`. |
+| `AZURE_OPENAI_API_KEY` | `...` | Injected as `api-key` header on `/azure/v1/*` routes. |
+| `AZURE_OPENAI_ENDPOINT` | `https://my-resource.openai.azure.com` | Azure resource endpoint. Required to enable Azure routes. |
+| `AZURE_OPENAI_API_VERSION` | `2024-02-01` | Azure API version. Defaults to `2024-02-01` when unset. |
+| `GEMINI_API_KEY` | `AIza...` | Injected as `Authorization: Bearer` on `/gemini/v1/*` routes. |
+| `GEMINI_UPSTREAM_URL` | `https://…aiplatform.googleapis.com/…` | Override Gemini upstream for Vertex AI. Defaults to `https://generativelanguage.googleapis.com/v1beta/openai`. |
+| `CF_AIG_TOKEN` | `vck_...` | Cloudflare AI Gateway auth token. Accepts bare token or `Bearer token` — normalized automatically. |
 | `TOON_THRESHOLD` | `0.6` | Min tabular eligibility score (0–1) before encoding. Lower = more aggressive. |
+| `TOON_THRESHOLD_CHAT` | `0.5` | Per-route override for `/v1/chat/completions`, `/azure/v1/chat/completions`, `/gemini/v1/chat/completions`. |
+| `TOON_THRESHOLD_EMBEDDINGS` | `0.8` | Per-route override for embeddings routes across all providers. |
 | `TOON_LOG_SAVINGS` | `true` | Write per-request savings rows to D1. |
-| `ADMIN_KEY` | _(random string)_ | Protects all `/savings/*` routes. When unset, those routes return `404`. Set with `wrangler secret put ADMIN_KEY`. |
-| `PROXY_AUTH_KEY` | _(random string)_ | **Optional.** When set, all `/v1/*` proxy routes require `Authorization: Bearer <value>`. Leave unset for open access. |
+| `ADMIN_KEY` | _(random string)_ | Protects all `/savings/*` routes. When unset, those routes return `404`. |
+| `PROXY_AUTH_KEY` | _(random string)_ | When set, all proxy routes (`/v1/*`, `/azure/v1/*`, `/gemini/v1/*`) require `Authorization: Bearer <value>`. When unset, returns `401` — set this to enable access. |
 
 **Note on `UPSTREAM_URL`:** toongate strips the `/v1` prefix from incoming paths before appending to `UPSTREAM_URL`, so `UPSTREAM_URL` should end in `/v1` (or the equivalent base for your gateway). For Anthropic direct, set `UPSTREAM_URL=https://api.anthropic.com`.
 
@@ -230,15 +237,15 @@ savings (
 
 toongate is a transparent proxy — it speaks the same OpenAI-compatible protocol as its upstream. Works with anything that supports a custom `baseURL`.
 
-| Gateway | Status |
-| --- | --- |
-| Cloudflare AI Gateway | Supported |
-| OpenAI direct | Supported |
-| Anthropic direct | Supported |
-| Helicone | Supported |
-| LiteLLM | Supported |
-| Azure OpenAI | Planned |
-| Google Gemini | Planned |
+| Gateway / Provider | Route prefix | Status |
+| --- | --- | --- |
+| OpenAI direct | `/v1/*` | Supported |
+| Anthropic direct | `/v1/messages` | Supported |
+| Azure OpenAI | `/azure/v1/*` | Supported |
+| Google Gemini | `/gemini/v1/*` | Supported |
+| Cloudflare AI Gateway | `/v1/*` | Supported |
+| Helicone | `/v1/*` | Supported |
+| LiteLLM | `/v1/*` | Supported |
 
 ---
 
@@ -254,6 +261,8 @@ src/
 ├── routes/
 │   ├── openai.ts         # POST /v1/chat/completions, /v1/embeddings
 │   ├── anthropic.ts      # POST /v1/messages
+│   ├── azure.ts          # POST /azure/v1/chat/completions, /azure/v1/embeddings
+│   ├── gemini.ts         # POST /gemini/v1/chat/completions, /gemini/v1/embeddings
 │   └── savings.ts        # GET /savings/summary, /savings/by-model, /savings/history, /savings/dashboard
 └── lib/
     ├── encoder.ts        # JSON → TOON via @toon-format/toon
@@ -315,7 +324,6 @@ Issues and PRs are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) before open
 
 Areas where help is most useful:
 
-- Azure OpenAI and Gemini upstream support
 - Streaming response TOON decoding (chunked SSE)
 - Gateway webhook integration (push savings delta into gateway custom properties)
 - Performance benchmarks at high request volume

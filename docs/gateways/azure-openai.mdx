@@ -1,60 +1,118 @@
 ---
 title: Azure OpenAI
-description: Use toongate in front of Azure OpenAI Service.
+description: Use toongate in front of Azure OpenAI deployments.
+---
+
+## How it works
+
+toongate exposes a dedicated prefix `/azure/v1/*` for Azure OpenAI. It builds the deployment-specific Azure URL from the `model` field in the request body, injects your `AZURE_OPENAI_API_KEY` as the `api-key` header, and forwards the (optionally compressed) payload to Azure.
+
+```
+Your App  →  toongate /azure/v1/chat/completions  →  {resource}.openai.azure.com/openai/deployments/{model}/chat/completions?api-version=…
+```
+
+No SDK changes beyond `baseURL` — Azure-specific URL building and auth happen inside toongate.
+
 ---
 
 ## Setup
 
-Azure OpenAI uses a different URL pattern and API key header than OpenAI direct. Set `UPSTREAM_URL` to your Azure OpenAI endpoint:
+Set the following secrets on your Worker:
 
 ```bash
-UPSTREAM_URL=https://{resource-name}.openai.azure.com/openai/deployments/{deployment-id}
-OPENAI_API_KEY=<azure-api-key>
+wrangler secret put AZURE_OPENAI_API_KEY      # Azure API key
+wrangler secret put AZURE_OPENAI_ENDPOINT     # e.g. https://my-resource.openai.azure.com
+wrangler secret put AZURE_OPENAI_API_VERSION  # optional — default: 2024-02-01
 ```
+
+For local development, add them to `.dev.vars`:
+
+```ini
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=https://my-resource.openai.azure.com
+AZURE_OPENAI_API_VERSION=2024-02-01
+```
+
+---
+
+## Usage
+
+Point your SDK at `https://toongate.workers.dev/azure/v1`. Pass your **Azure deployment name** as the `model` field — toongate uses it to build the upstream URL.
 
 ```typescript
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  baseURL: "https://toongate.workers.dev/v1",
-  defaultQuery: { "api-version": "2024-02-01" },
-  defaultHeaders: { "api-key": process.env.AZURE_OPENAI_API_KEY },
+const client = new OpenAI({
+  baseURL: "https://toongate.workers.dev/azure/v1",
+  apiKey: "unused", // toongate injects AZURE_OPENAI_API_KEY automatically
+});
+
+const response = await client.chat.completions.create({
+  model: "my-gpt4o-deployment", // ← your Azure deployment name
+  messages: [
+    {
+      role: "user",
+      content: "Summarize: " + JSON.stringify(myDataArray),
+    },
+  ],
 });
 ```
-
-<Note>
-  Azure OpenAI uses `api-key` instead of `Authorization: Bearer`. Pass it as a custom header from your SDK — toongate forwards it unchanged.
-</Note>
-
----
-
-## Request flow
-
-```
-Your App → toongate (compress) → Azure OpenAI endpoint
-```
-
-toongate compresses `messages[].content` arrays before forwarding to Azure. The Azure API key and `api-version` query parameter pass through to Azure unchanged.
 
 ---
 
 ## Supported routes
 
-| toongate route | Azure route |
-|---|---|
-| `POST /v1/chat/completions` | `POST /chat/completions?api-version=...` |
-| `POST /v1/embeddings` | `POST /embeddings?api-version=...` |
+| Method | toongate path | Azure upstream |
+|--------|--------------|----------------|
+| `POST` | `/azure/v1/chat/completions` | `{endpoint}/openai/deployments/{model}/chat/completions?api-version={ver}` |
+| `POST` | `/azure/v1/embeddings` | `{endpoint}/openai/deployments/{model}/embeddings?api-version={ver}` |
 
-The `api-version` query parameter you set in your SDK is forwarded to Azure by toongate.
+---
+
+## Authentication
+
+Azure OpenAI uses the `api-key` header (not `Authorization: Bearer`). toongate handles this automatically — you do not need to set any auth headers in your SDK.
+
+```
+Your App (no key) → toongate (injects api-key header) → Azure OpenAI
+```
+
+---
+
+## Streaming
+
+Streaming (`stream: true`) is fully supported. toongate compresses the request payload and passes SSE chunks back to your client as they arrive.
+
+```typescript
+const stream = await client.chat.completions.create({
+  model: "my-gpt4o-deployment",
+  messages: [{ role: "user", content: "..." }],
+  stream: true,
+});
+
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+}
+```
 
 ---
 
 ## Per-route threshold
 
-Tune the eligibility threshold for Azure chat completions specifically:
+Azure routes share the same threshold knobs as OpenAI:
 
 ```bash
-TOON_THRESHOLD_CHAT=0.5
+TOON_THRESHOLD_CHAT=0.5        # applies to /azure/v1/chat/completions
+TOON_THRESHOLD_EMBEDDINGS=0.8  # applies to /azure/v1/embeddings
 ```
 
-This applies to all chat completion requests regardless of which upstream (Azure, OpenAI, or other) handles them.
+---
+
+## Error responses
+
+| Status | Condition |
+|--------|-----------|
+| `401` | `PROXY_AUTH_KEY` is set but the request is missing or has a wrong `Authorization: Bearer` header |
+| `503` | `AZURE_OPENAI_ENDPOINT` or `AZURE_OPENAI_API_KEY` is not configured |
+| `504` | Upstream did not respond within `UPSTREAM_TIMEOUT_MS` (default 30 s) |
+| `502` | Any other upstream fetch error |

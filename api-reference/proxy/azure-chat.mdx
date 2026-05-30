@@ -1,0 +1,79 @@
+---
+title: "POST /azure/v1/chat/completions"
+api: "POST https://toongate.workers.dev/azure/v1/chat/completions"
+description: Azure OpenAI chat completions with automatic TOON compression.
+---
+
+## Overview
+
+Proxies to `{AZURE_OPENAI_ENDPOINT}/openai/deployments/{model}/chat/completions?api-version={AZURE_OPENAI_API_VERSION}`. The deployment name is taken from the `model` field. toongate injects the `api-key` header automatically.
+
+## Authorization
+
+<ParamField header="Authorization" type="string">
+  Required only when `PROXY_AUTH_KEY` is set on the Worker. Pass `Bearer <PROXY_AUTH_KEY>` to authenticate to toongate itself. The Azure API key (`AZURE_OPENAI_API_KEY`) is always injected automatically as the `api-key` header — you do not need to pass it.
+</ParamField>
+
+## Request body
+
+The request body is the standard OpenAI Chat Completions request schema.
+
+<ParamField body="model" type="string" required>
+  Azure **deployment name** (e.g. `my-gpt4o-deployment`). toongate uses this to build the upstream URL: `.../deployments/{model}/chat/completions`.
+</ParamField>
+
+<ParamField body="messages" type="array" required>
+  Array of message objects. `content` fields containing uniform arrays of objects are eligible for TOON compression.
+</ParamField>
+
+<ParamField body="stream" type="boolean">
+  When `true`, returns SSE events. toongate compresses the request and passes chunks back as-is.
+</ParamField>
+
+## Response headers
+
+| Header | Description |
+|---|---|
+| `X-Toongate-Compressed` | `true` if the request payload was compressed |
+| `X-Toongate-Tokens-Before` | Estimated token count before compression |
+| `X-Toongate-Tokens-After` | Estimated token count after compression |
+| `X-Toongate-Tokens-Saved` | Tokens saved |
+| `X-Toongate-Eligibility-Score` | Eligibility score (0–1) |
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/azure/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-gpt4o-deployment",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Summarize: [{\"id\":1,\"title\":\"A\",\"score\":0.9},{\"id\":2,\"title\":\"B\",\"score\":0.8}]"
+      }
+    ]
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "message": { "role": "assistant", "content": "..." },
+      "finish_reason": "stop",
+      "index": 0
+    }
+  ],
+  "usage": { "prompt_tokens": 47, "completion_tokens": 32, "total_tokens": 79 }
+}
+```
+
+```json 503
+{ "error": "Azure OpenAI is not configured" }
+```
+</ResponseExample>
