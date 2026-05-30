@@ -69,8 +69,8 @@ Free-form text, deeply nested configs, and anything that doesn't compress well p
   <Card title="Sub-millisecond overhead" icon="gauge-high">
     Compression runs in the Worker before forwarding. Adds ~0.5ms to your request — invisible in practice.
   </Card>
-  <Card title="Any gateway, untouched" icon="router">
-    Helicone, CF AI Gateway, LiteLLM, direct OpenAI/Anthropic — all gateway headers pass through unchanged.
+  <Card title="4 providers, one proxy" icon="router">
+    OpenAI, Anthropic, Azure OpenAI, and Google Gemini — each on its own prefix (`/v1/*`, `/azure/v1/*`, `/gemini/v1/*`). CF AI Gateway, Helicone, and LiteLLM also supported.
   </Card>
   <Card title="Real-time savings log" icon="chart-line">
     Every request writes tokens_before, tokens_after, usd_saved to D1. Query it anytime via REST or Wrangler.

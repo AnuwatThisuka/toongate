@@ -16,9 +16,14 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 
 ### Provider keys (set the ones you use)
 
-| Variable | Description |
-|---|---|
-| `ANTHROPIC_API_KEY` | Injected as `x-api-key` on Anthropic `/v1/messages` routes. |
+| Variable | Routes | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | `/v1/messages` | Injected as `x-api-key` on Anthropic routes. |
+| `AZURE_OPENAI_API_KEY` | `/azure/v1/*` | Injected as `api-key` header on Azure routes. Required to enable Azure. |
+| `AZURE_OPENAI_ENDPOINT` | `/azure/v1/*` | Azure resource base URL, e.g. `https://my-resource.openai.azure.com`. Required to enable Azure. |
+| `AZURE_OPENAI_API_VERSION` | `/azure/v1/*` | Azure API version. Defaults to `2024-02-01` when unset. |
+| `GEMINI_API_KEY` | `/gemini/v1/*` | Injected as `Authorization: Bearer` on Gemini routes. Required to enable Gemini (unless using Vertex AI via `GEMINI_UPSTREAM_URL`). |
+| `GEMINI_UPSTREAM_URL` | `/gemini/v1/*` | Override Gemini upstream URL. Default: `https://generativelanguage.googleapis.com/v1beta/openai`. Use for Vertex AI. |
 
 ### Gateway auth
 
@@ -31,8 +36,8 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 | Variable | Default | Description |
 |---|---|---|
 | `TOON_THRESHOLD` | `0.6` | Minimum eligibility score (0–1) before encoding. Lower = more aggressive. |
-| `TOON_THRESHOLD_CHAT` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for `/v1/chat/completions`. |
-| `TOON_THRESHOLD_EMBEDDINGS` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for `/v1/embeddings`. |
+| `TOON_THRESHOLD_CHAT` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for chat completions across all providers (`/v1/chat/completions`, `/azure/v1/chat/completions`, `/gemini/v1/chat/completions`). |
+| `TOON_THRESHOLD_EMBEDDINGS` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for embeddings across all providers (`/v1/embeddings`, `/azure/v1/embeddings`, `/gemini/v1/embeddings`). |
 | `TOON_THRESHOLD_MESSAGES` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for Anthropic `/v1/messages`. |
 | `TOON_DRY_RUN` | `false` | When `true`, estimates savings but sends original payload. Great for testing before enabling compression on production traffic. |
 | `TOON_LOG_SAVINGS` | `true` | Write per-request savings rows to D1. Set `false` to skip D1 writes entirely. |
@@ -48,7 +53,7 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 | Variable | Description |
 |---|---|
 | `ADMIN_KEY` | Protects all `/savings/*` routes. If not set, those routes return `404`. Set to a random 32+ char string. |
-| `PROXY_AUTH_KEY` | Optional. When set, all proxy routes (`/v1/*`) require `Authorization: Bearer <value>`. Leave unset for open access (e.g. if your Worker is behind Cloudflare Access). |
+| `PROXY_AUTH_KEY` | **Required for production.** When set, all proxy routes (`/v1/*`, `/azure/v1/*`, `/gemini/v1/*`) require `Authorization: Bearer <value>`. When unset, all proxy routes return `401`. Set to a random 32+ char string. |
 
 ---
 
@@ -99,23 +104,32 @@ Not sure what threshold to use? Start with dry-run mode:
 ## Example: `.dev.vars` (full)
 
 ```bash
-# Required
+# OpenAI / OpenAI-compatible  (/v1/*)
 UPSTREAM_URL=https://api.openai.com/v1
 OPENAI_API_KEY=sk-proj-...
 
-# Optional providers
+# Anthropic  (/v1/messages)
 ANTHROPIC_API_KEY=sk-ant-...
+
+# Azure OpenAI  (/azure/v1/*)
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=https://my-resource.openai.azure.com
+# AZURE_OPENAI_API_VERSION=2024-02-01  # optional, this is the default
+
+# Gemini  (/gemini/v1/*)
+GEMINI_API_KEY=AIza...
+# GEMINI_UPSTREAM_URL=  # optional, for Vertex AI
 
 # Compression
 TOON_THRESHOLD=0.6
 TOON_DRY_RUN=false
 TOON_LOG_SAVINGS=true
 
+# Proxy auth — required for production, protects all proxy routes
+PROXY_AUTH_KEY=change-me-to-a-random-32-char-string
+
 # Admin — protects /savings/* routes
 ADMIN_KEY=change-me-to-a-random-32-char-string
-
-# Proxy auth — optional, protects /v1/* routes
-# PROXY_AUTH_KEY=change-me-to-a-random-32-char-string
 
 # Reliability
 UPSTREAM_TIMEOUT_MS=30000

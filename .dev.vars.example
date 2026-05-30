@@ -1,34 +1,49 @@
-# Upstream gateway — pick one and uncomment:
+# ─── OpenAI / OpenAI-compatible  (/v1/*) ────────────────────────────────────
+# Pick one upstream and uncomment:
 
 # Cloudflare AI Gateway (recommended if hosting on Workers)
 UPSTREAM_URL=https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/openai
 
-# Helicone
-# UPSTREAM_URL=https://oai.helicone.ai/v1
-
 # OpenAI direct
 # UPSTREAM_URL=https://api.openai.com/v1
 
-# Anthropic direct
-# UPSTREAM_URL=https://api.anthropic.com
+# Helicone
+# UPSTREAM_URL=https://oai.helicone.ai/v1
 
 # LiteLLM (self-hosted)
 # UPSTREAM_URL=https://your-litellm-instance/v1
 
 OPENAI_API_KEY=
+
+# ─── Anthropic  (/v1/messages) ───────────────────────────────────────────────
+# UPSTREAM_URL for Anthropic direct: https://api.anthropic.com
 ANTHROPIC_API_KEY=
 
-# Auth key for callers of toongate proxy routes (/v1/*). Optional.
-# When set, all proxy requests must include: Authorization: Bearer <value>
+# ─── Azure OpenAI  (/azure/v1/*) ─────────────────────────────────────────────
+AZURE_OPENAI_API_KEY=
+AZURE_OPENAI_ENDPOINT=https://{resource-name}.openai.azure.com
+# AZURE_OPENAI_API_VERSION=2024-02-01   # optional — this is the default
+
+# ─── Gemini  (/gemini/v1/*) ──────────────────────────────────────────────────
+GEMINI_API_KEY=
+# GEMINI_UPSTREAM_URL=   # optional — for Vertex AI override
+
+# ─── Auth ────────────────────────────────────────────────────────────────────
+# Proxy auth — required for production.
+# All proxy routes (/v1/*, /azure/v1/*, /gemini/v1/*) return 401 when this is not set.
+# When set, callers must include: Authorization: Bearer <value>
 PROXY_AUTH_KEY=
 
-# Admin key for savings/observability routes (/savings/*). Optional.
-# When set, all savings requests must include: X-Toongate-Admin-Key: <value>
+# Admin key — protects /savings/* observability routes.
+# When set, requests must include: X-Toongate-Admin-Key: <value>
 # When unset, savings routes return 404 (hidden).
 ADMIN_KEY=
 
-# Cloudflare AI Gateway — only needed if gateway auth is enabled
+# ─── Cloudflare AI Gateway ───────────────────────────────────────────────────
+# Only needed if gateway auth is enabled on your CF AI Gateway.
 CF_AIG_TOKEN=
 
+# ─── Compression ─────────────────────────────────────────────────────────────
 TOON_THRESHOLD=0.6
 TOON_LOG_SAVINGS=true
+# TOON_DRY_RUN=true   # estimate savings without compressing — good for testing
