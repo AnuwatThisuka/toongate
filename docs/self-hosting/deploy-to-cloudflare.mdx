@@ -63,6 +63,33 @@ curl -s https://toongate.<subdomain>.workers.dev/v1/chat/completions \
 
 ---
 
+## Smoke test after deploy
+
+Run the included load test script to verify compression is working end-to-end:
+
+```bash
+chmod +x benchmark/toongate-loadtest.sh
+
+# Without proxy auth
+benchmark/toongate-loadtest.sh https://toongate.<subdomain>.workers.dev <admin-key>
+
+# With PROXY_AUTH_KEY set
+benchmark/toongate-loadtest.sh https://toongate.<subdomain>.workers.dev <admin-key> <proxy-key>
+```
+
+The script sends 100 requests across 4 payload types and prints a summary with compression rate, tokens saved, and a final verdict.
+
+For a full benchmark (compression ratio, latency overhead vs direct, throughput):
+
+```bash
+node benchmark/toongate-benchmark.mjs \
+  https://toongate.<subdomain>.workers.dev \
+  https://api.openai.com \
+  <admin-key>
+```
+
+---
+
 ## Cloudflare free tier limits
 
 | Resource | Free tier |
