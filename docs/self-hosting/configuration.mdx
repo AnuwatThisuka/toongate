@@ -47,7 +47,8 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 
 | Variable | Description |
 |---|---|
-| `ADMIN_KEY` | Protects `GET /savings/*`. If not set, those routes return 404. Set to a random 32+ char string. |
+| `ADMIN_KEY` | Protects all `/savings/*` routes. If not set, those routes return `404`. Set to a random 32+ char string. |
+| `PROXY_AUTH_KEY` | Optional. When set, all proxy routes (`/v1/*`) require `Authorization: Bearer <value>`. Leave unset for open access (e.g. if your Worker is behind Cloudflare Access). |
 
 ---
 
@@ -95,8 +96,11 @@ TOON_THRESHOLD=0.6
 TOON_DRY_RUN=false
 TOON_LOG_SAVINGS=true
 
-# Admin
+# Admin — protects /savings/* routes
 ADMIN_KEY=change-me-to-a-random-32-char-string
+
+# Proxy auth — optional, protects /v1/* routes
+# PROXY_AUTH_KEY=change-me-to-a-random-32-char-string
 
 # Reliability
 UPSTREAM_TIMEOUT_MS=30000

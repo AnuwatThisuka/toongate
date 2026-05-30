@@ -1,6 +1,9 @@
 import { Hono } from "hono";
+import { adminAuth } from "../middleware/admin-auth";
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.use("*", adminAuth);
 
 // GET /savings/summary — aggregate totals grouped by model
 app.get("/savings/summary", async (c) => {

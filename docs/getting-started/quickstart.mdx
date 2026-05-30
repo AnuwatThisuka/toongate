@@ -171,7 +171,8 @@ Then set your production secrets:
 
 ```bash
 wrangler secret put OPENAI_API_KEY
-wrangler secret put ADMIN_KEY  # protects /savings and /metrics endpoints
+wrangler secret put ADMIN_KEY        # protects /savings/* routes
+# wrangler secret put PROXY_AUTH_KEY  # optional — protects /v1/* proxy routes
 ```
 
 Update your app's `baseURL` to the deployed Worker URL — done.

@@ -77,10 +77,13 @@ Returns paginated raw savings rows from the D1 `savings` table.
 
 ## GET /savings/dashboard
 
-Returns an HTML dashboard you can open in a browser. No admin key required — access is controlled by Cloudflare Access or your own network perimeter.
+Returns an HTML dashboard you can open in a browser.
 
-```
-https://toongate.workers.dev/savings/dashboard
+Requires the same `X-Toongate-Admin-Key` header as the other savings routes.
+
+```bash
+curl https://toongate.workers.dev/savings/dashboard \
+  -H "X-Toongate-Admin-Key: your-admin-key"
 ```
 
 ---

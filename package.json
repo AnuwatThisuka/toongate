@@ -8,6 +8,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "types": "wrangler types src/worker.d.ts",
+    "lint": "tsc --noEmit",
+    "lint:fix": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 migrations apply toongate-savings --local",
     "db:migrate:remote": "wrangler d1 migrations apply toongate-savings --remote"
   },

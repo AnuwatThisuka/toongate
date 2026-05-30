@@ -21,7 +21,8 @@ Wrangler outputs your Worker URL — something like `https://toongate.<your-subd
 ```bash
 wrangler secret put OPENAI_API_KEY
 wrangler secret put ANTHROPIC_API_KEY   # if using Anthropic
-wrangler secret put ADMIN_KEY           # protects /savings and /metrics
+wrangler secret put ADMIN_KEY           # protects /savings/* routes
+# wrangler secret put PROXY_AUTH_KEY   # optional — protects /v1/* proxy routes
 ```
 
 <Warning>

@@ -18,6 +18,15 @@ UPSTREAM_URL=https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/open
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 
+# Auth key for callers of toongate proxy routes (/v1/*). Optional.
+# When set, all proxy requests must include: Authorization: Bearer <value>
+PROXY_AUTH_KEY=
+
+# Admin key for savings/observability routes (/savings/*). Optional.
+# When set, all savings requests must include: X-Toongate-Admin-Key: <value>
+# When unset, savings routes return 404 (hidden).
+ADMIN_KEY=
+
 # Cloudflare AI Gateway — only needed if gateway auth is enabled
 CF_AIG_TOKEN=
 
