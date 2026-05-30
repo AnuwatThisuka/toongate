@@ -13,4 +13,6 @@ interface Env {
   UPSTREAM_TIMEOUT_MS: string;
   DB: D1Database;
   CF_AIG_TOKEN: string;
+  ADMIN_KEY: string;
+  PROXY_AUTH_KEY: string;
 }

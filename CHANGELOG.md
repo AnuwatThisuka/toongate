@@ -9,6 +9,26 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [0.1.0] - 2026-05-30
+
+### Added
+- TOON compression for uniform arrays of objects (~40% token savings)
+- OpenAI routes: `/v1/chat/completions`, `/v1/embeddings`
+- Anthropic route: `/v1/messages`
+- Streaming SSE pass-through
+- D1 savings log with fire-and-forget writes
+- Savings REST API: `/savings/summary`, `/savings/history`, `/savings/by-model`
+- Debug response headers: `X-Toongate-Compressed`, `X-Toongate-Tokens-Saved`, etc.
+- Dry-run mode (`TOON_DRY_RUN=true`)
+- Health endpoint (`GET /health`)
+- Eligibility scorer with configurable threshold
+- Per-route threshold config (`TOON_THRESHOLD_CHAT`, etc.)
+- Gateway support: OpenAI direct, Anthropic direct, CF AI Gateway, Helicone, LiteLLM
+- Cloudflare Workers + D1 deployment
+- Mintlify docs
+
 ### Added
 - Initial proxy core — request interception, TOON encoding, upstream forwarding
 - Helicone header passthrough — all `Helicone-*` headers forwarded untouched

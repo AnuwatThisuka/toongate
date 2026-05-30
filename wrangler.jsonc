@@ -16,7 +16,8 @@
     {
       "binding": "DB",
       "database_name": "toongate-savings",
-      "database_id": "b4358ffb-dab1-429c-b63c-9a0e6907250a",
+      // Replace with your D1 database_id from: npx wrangler d1 create toongate-savings
+      "database_id": "<your-database-id>",
       "migrations_dir": "migrations",
     },
   ],
