@@ -19,6 +19,8 @@ function buildUpstreamHeaders(c: Context<{ Bindings: Env }>): Headers {
   headers.delete("x-api-key");
   headers.set("x-api-key", c.env.ANTHROPIC_API_KEY);
   headers.delete("content-length");
+  // Strip toongate-internal headers — never forward to upstream
+  headers.delete("x-toongate-admin-key");
 
   if (c.env.CF_AIG_TOKEN) {
     const tok = c.env.CF_AIG_TOKEN.startsWith("Bearer ")

@@ -1,4 +1,5 @@
 import { createMiddleware } from "hono/factory";
+import { safeCompare } from "../lib/safe-compare";
 
 export const proxyAuth = createMiddleware<{ Bindings: Env }>(async (c, next) => {
   const proxyKey = c.env.PROXY_AUTH_KEY;
@@ -11,7 +12,7 @@ export const proxyAuth = createMiddleware<{ Bindings: Env }>(async (c, next) => 
   const authHeader = c.req.header("Authorization") ?? "";
   const provided = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
-  if (provided !== proxyKey) {
+  if (!safeCompare(proxyKey, provided)) {
     return c.json({ error: "unauthorized" }, 401);
   }
 

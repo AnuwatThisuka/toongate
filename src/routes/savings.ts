@@ -72,6 +72,33 @@ app.get("/savings/history", async (c) => {
   });
 });
 
+interface ByModelRow {
+  model: string;
+  request_count: number;
+  tokens_saved: number;
+  usd_saved: number;
+}
+
+// GET /savings/by-model — savings totals grouped by model, sorted by tokens_saved desc
+app.get("/savings/by-model", async (c) => {
+  const db = c.env.DB;
+  if (!db) return c.json({ error: "DB binding not configured" }, 503);
+
+  const result = await db
+    .prepare(
+      `SELECT model,
+              COUNT(*)                  AS request_count,
+              SUM(tokens_saved)         AS tokens_saved,
+              ROUND(SUM(usd_saved), 6)  AS usd_saved
+       FROM savings
+       GROUP BY model
+       ORDER BY tokens_saved DESC`,
+    )
+    .all<ByModelRow>();
+
+  return c.json({ rows: result.results });
+});
+
 interface DailyRow {
   day: string;
   requests: number;
