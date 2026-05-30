@@ -283,6 +283,23 @@ npm run types             # regenerate wrangler type bindings → src/worker.d.t
 npm run generate:pricing  # fetch latest model prices from LiteLLM → src/lib/pricing.ts
 ```
 
+### Load test
+
+`toongate-loadtest.sh` smoke-tests a live Worker — sends 100 requests across 4 payload types (RAG chunks, DB rows, product catalog, plain text) and reports compression rate, tokens saved, and a final verdict.
+
+```bash
+chmod +x toongate-loadtest.sh
+
+# Local dev
+./toongate-loadtest.sh http://localhost:8787
+
+# Production (with savings API summary)
+./toongate-loadtest.sh https://toongate.workers.dev <admin-key>
+
+# Production with PROXY_AUTH_KEY set
+./toongate-loadtest.sh https://toongate.workers.dev <admin-key> <proxy-key>
+```
+
 ---
 
 ## Contributing

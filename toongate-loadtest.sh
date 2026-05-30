@@ -1,12 +1,13 @@
 #!/bin/bash
 # ============================================================
 # toongate Load Test Script
-# Usage: ./loadtest.sh <worker-url> <admin-key>
-# Example: ./loadtest.sh https://toongate.workers.dev your-admin-key
+# Usage: ./toongate-loadtest.sh <worker-url> [admin-key] [proxy-key]
+# Example: ./toongate-loadtest.sh https://toongate.workers.dev my-admin-key my-proxy-key
 # ============================================================
 
 WORKER_URL="${1:-http://localhost:8787}"
 ADMIN_KEY="${2:-}"
+PROXY_KEY="${3:-}"
 REQUESTS=100
 CONCURRENCY=5
 PASS=0
@@ -29,6 +30,9 @@ echo -e "${BOLD}╚════════════════════�
 echo ""
 echo -e "  Target  : ${CYAN}${WORKER_URL}${RESET}"
 echo -e "  Requests: ${REQUESTS} total (${CONCURRENCY} concurrent)"
+if [ -n "$PROXY_KEY" ]; then
+  echo -e "  Auth    : PROXY_AUTH_KEY set ✓"
+fi
 echo ""
 
 # ── Payloads ────────────────────────────────────────────────
@@ -104,37 +108,42 @@ PAYLOAD_NAMES=("RAG chunks" "DB rows" "Product catalog" "Plain text (baseline)")
 echo -e "${BOLD}Running requests...${RESET}"
 echo ""
 
-TMPDIR=$(mktemp -d)
+WORK_DIR=$(mktemp -d)
 
 run_request() {
   local idx=$1
   local payload_idx=$(( idx % 4 ))
   local payload="${PAYLOADS[$payload_idx]}"
-  local outfile="$TMPDIR/req_$idx.json"
+  local outfile="$WORK_DIR/req_$idx.txt"
+
+  # Build auth header args
+  local auth_args=()
+  if [ -n "$PROXY_KEY" ]; then
+    auth_args+=(-H "Authorization: Bearer $PROXY_KEY")
+  fi
 
   local response
   response=$(curl -s -w "\n%{http_code}" \
     -X POST "$WORKER_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -H "Accept: application/json" \
-    -D "$TMPDIR/headers_$idx.txt" \
+    "${auth_args[@]}" \
+    -D "$WORK_DIR/headers_$idx.txt" \
     -d "$payload" \
     --max-time 30 2>/dev/null)
 
   local http_code
   http_code=$(echo "$response" | tail -1)
-  local body
-  body=$(echo "$response" | head -n -1)
 
-  # Parse headers
+  # Parse toongate debug headers
   local compressed tokens_saved
-  compressed=$(grep -i "x-toongate-compressed:" "$TMPDIR/headers_$idx.txt" 2>/dev/null | tr -d '\r' | awk '{print $2}')
-  tokens_saved=$(grep -i "x-toongate-tokens-saved:" "$TMPDIR/headers_$idx.txt" 2>/dev/null | tr -d '\r' | awk '{print $2}')
+  compressed=$(grep -i "x-toongate-compressed:" "$WORK_DIR/headers_$idx.txt" 2>/dev/null | tr -d '\r' | awk '{print $2}')
+  tokens_saved=$(grep -i "x-toongate-tokens-saved:" "$WORK_DIR/headers_$idx.txt" 2>/dev/null | tr -d '\r' | awk '{print $2}')
 
   echo "${http_code}|${compressed:-false}|${tokens_saved:-0}" > "$outfile"
 }
 
-# Run with concurrency
+# Run with concurrency (batches of CONCURRENCY)
 active=0
 for i in $(seq 1 $REQUESTS); do
   run_request $i &
@@ -156,7 +165,7 @@ echo ""
 
 # ── Aggregate results ────────────────────────────────────────
 
-for outfile in "$TMPDIR"/req_*.json; do
+for outfile in "$WORK_DIR"/req_*.txt; do
   [ -f "$outfile" ] || continue
   IFS='|' read -r http_code compressed tokens_saved < "$outfile"
 
@@ -204,8 +213,13 @@ echo ""
 
 # Payload breakdown
 echo -e "  ${BOLD}Payload types tested${RESET}"
+last_idx=$(( ${#PAYLOAD_NAMES[@]} - 1 ))
 for i in "${!PAYLOAD_NAMES[@]}"; do
-  echo -e "  ├─ ${PAYLOAD_NAMES[$i]}"
+  if [ $i -eq $last_idx ]; then
+    echo -e "  └─ ${PAYLOAD_NAMES[$i]}"
+  else
+    echo -e "  ├─ ${PAYLOAD_NAMES[$i]}"
+  fi
 done
 echo ""
 
@@ -225,9 +239,9 @@ if [ -n "$ADMIN_KEY" ]; then
 import sys, json
 d = json.load(sys.stdin)
 o = d.get('overall', d)
-print(f'  ├─ All-time requests  : {o.get(\"requests\", \"N/A\")}')
+print(f'  ├─ All-time requests    : {o.get(\"requests\", \"N/A\")}')
 print(f'  ├─ All-time tokens saved: {o.get(\"total_tokens_saved\", \"N/A\")}')
-print(f'  └─ All-time USD saved: \${o.get(\"total_usd_saved\", 0):.4f}')
+print(f'  └─ All-time USD saved   : \${o.get(\"total_usd_saved\", 0):.4f}')
 " 2>/dev/null || echo "$SUMMARY" | head -5
   else
     echo -e "  ${YELLOW}⚠ Could not parse savings API response${RESET}"
@@ -243,8 +257,14 @@ echo -e "${BOLD}║         Debug Headers (1 sample)       ║${RESET}"
 echo -e "${BOLD}╚════════════════════════════════════════╝${RESET}"
 echo ""
 
+sample_auth_args=()
+if [ -n "$PROXY_KEY" ]; then
+  sample_auth_args+=(-H "Authorization: Bearer $PROXY_KEY")
+fi
+
 curl -si -X POST "$WORKER_URL/v1/chat/completions" \
   -H "Content-Type: application/json" \
+  "${sample_auth_args[@]}" \
   -d "$RAG_PAYLOAD" \
   --max-time 30 2>/dev/null \
   | grep -i "x-toongate" \
@@ -256,7 +276,7 @@ curl -si -X POST "$WORKER_URL/v1/chat/completions" \
 echo ""
 
 # ── Cleanup ──────────────────────────────────────────────────
-rm -rf "$TMPDIR"
+rm -rf "$WORK_DIR"
 
 # ── Final verdict ────────────────────────────────────────────
 
@@ -275,8 +295,13 @@ elif [ $FAIL -eq 0 ] && [ $COMPRESSED -eq 0 ]; then
   echo -e "  ${YELLOW}${BOLD}⚠ Requests succeeded but nothing was compressed${RESET}"
   echo -e "  Check TOON_THRESHOLD setting or payload structure."
 elif [ $FAIL -gt 0 ]; then
-  echo -e "  ${RED}${BOLD}❌ Some requests failed${RESET}"
-  echo -e "  Check Worker URL, PROXY_AUTH_KEY, and Cloudflare logs."
+  echo -e "  ${RED}${BOLD}❌ Some requests failed (${FAIL}/${REQUESTS})${RESET}"
+  if [ -n "$PROXY_KEY" ]; then
+    echo -e "  Check Worker URL and Cloudflare logs."
+  else
+    echo -e "  If PROXY_AUTH_KEY is set on the Worker, pass it as the 3rd argument:"
+    echo -e "  ${CYAN}./toongate-loadtest.sh $WORKER_URL \$ADMIN_KEY \$PROXY_AUTH_KEY${RESET}"
+  fi
 fi
 
 echo ""
