@@ -17,11 +17,12 @@ sequenceDiagram
     App->>TG: Request (OpenAI SDK — unchanged)
     TG->>TG: 1. Parse request body
     TG->>TG: 2. Score payload eligibility (0–1)
-    TG->>TG: 3. Compress if score ≥ threshold
-    TG->>US: 4. Forward (compressed) payload
+    TG->>TG: 3. Top-level compress if score ≥ threshold
+    TG->>TG: 4. Deep compress JSON arrays in content[].text (if step 3 skipped)
+    TG->>US: 5. Forward (compressed) payload
     US-->>TG: Response
-    TG-->>App: 5. Pass response back (standard JSON)
-    TG-)D1: 6. Write savings row (fire-and-forget)
+    TG-->>App: 6. Pass response back (standard JSON)
+    TG-)D1: 7. Write savings row (fire-and-forget)
 ```
 
 Your app never sees TOON. The response from toongate is always standard JSON — identical to what you'd get from OpenAI or Anthropic directly.
@@ -108,6 +109,8 @@ toongate is designed to never break your pipeline:
 |---|---|
 | Eligibility score below threshold | Pass original payload through unchanged |
 | TOON encode error | Pass original payload through, log error |
+| JSON string in `content[].text` is not a valid array | Skip silently, no deep compress |
+| Deep-compressed payload not smaller than original | Fall back to original payload |
 | TOON decode error in response | Pass response through unchanged |
 | Upstream timeout (`UPSTREAM_TIMEOUT_MS`) | Return `504` to client |
 | D1 write fails | Swallowed silently — never blocks response |

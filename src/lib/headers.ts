@@ -1,8 +1,9 @@
 import type { CompressResult } from "./compress";
+import type { DeepCompressResult } from "./deep-compress";
 
 export function applyDebugHeaders(
   headers: Headers,
-  result: CompressResult,
+  result: CompressResult | DeepCompressResult,
 ): void {
   headers.set("x-toongate-compressed", result.compressed ? "true" : "false");
   headers.set("x-toongate-tokens-before", String(result.tokensBefore));
@@ -12,4 +13,10 @@ export function applyDebugHeaders(
     "x-toongate-eligibility-score",
     result.eligibilityScore.toFixed(2),
   );
+  if ("deepCompressed" in result) {
+    headers.set(
+      "x-toongate-deep-compressed",
+      result.deepCompressed ? "true" : "false",
+    );
+  }
 }

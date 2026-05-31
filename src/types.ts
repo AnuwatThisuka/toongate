@@ -7,4 +7,5 @@ export interface SavingsRow {
   tokens_saved: number;
   usd_saved: number;
   elapsed_ms: number;
+  deep_compressed?: number; // 1 = true, 0 = false
 }
