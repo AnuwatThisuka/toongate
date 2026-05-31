@@ -7,8 +7,10 @@ description: Use toongate in front of Azure OpenAI deployments.
 
 toongate exposes a dedicated prefix `/azure/v1/*` for Azure OpenAI. It builds the deployment-specific Azure URL from the `model` field in the request body, injects your `AZURE_OPENAI_API_KEY` as the `api-key` header, and forwards the (optionally compressed) payload to Azure.
 
-```
-Your App  →  toongate /azure/v1/chat/completions  →  {resource}.openai.azure.com/openai/deployments/{model}/chat/completions?api-version=…
+```mermaid
+flowchart LR
+    A[Your App] --> B[toongate\n/azure/v1/chat/completions]
+    B --> C["{resource}.openai.azure.com\n/openai/deployments/{model}\n/chat/completions?api-version=…"]
 ```
 
 No SDK changes beyond `baseURL` — Azure-specific URL building and auth happen inside toongate.
@@ -76,8 +78,10 @@ const response = await client.chat.completions.create({
 
 Azure OpenAI uses the `api-key` header (not `Authorization: Bearer`). toongate handles this automatically — you do not need to set any auth headers in your SDK.
 
-```
-Your App (no key) → toongate (injects api-key header) → Azure OpenAI
+```mermaid
+flowchart LR
+    A["Your App\n(no key)"] --> B["toongate\n(injects api-key header)"]
+    B --> C[Azure OpenAI]
 ```
 
 ---

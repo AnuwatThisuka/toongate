@@ -7,19 +7,21 @@ description: The compression pipeline, eligibility scoring, and fallback behavio
 
 Every request through toongate follows this path:
 
-```
-Your App
-   │  OpenAI SDK (unchanged)
-   ▼
-toongate Worker
-   ├── 1. Parse request body
-   ├── 2. Score payload eligibility (0–1)
-   ├── 3. Compress if score ≥ threshold
-   ├── 4. Forward to upstream (gateway or provider)
-   ├── 5. Pass response back to your app
-   └── 6. Write savings row to D1 (fire-and-forget)
-   ▼
-Your App  ←  sees normal JSON, no TOON awareness needed
+```mermaid
+sequenceDiagram
+    participant App as Your App
+    participant TG as toongate
+    participant US as Upstream
+    participant D1
+
+    App->>TG: Request (OpenAI SDK — unchanged)
+    TG->>TG: 1. Parse request body
+    TG->>TG: 2. Score payload eligibility (0–1)
+    TG->>TG: 3. Compress if score ≥ threshold
+    TG->>US: 4. Forward (compressed) payload
+    US-->>TG: Response
+    TG-->>App: 5. Pass response back (standard JSON)
+    TG-)D1: 6. Write savings row (fire-and-forget)
 ```
 
 Your app never sees TOON. The response from toongate is always standard JSON — identical to what you'd get from OpenAI or Anthropic directly.
@@ -79,12 +81,19 @@ The model understands TOON natively — explicit `[N]` length markers and `{fiel
 
 When `stream: true` is set, toongate still compresses the request payload before forwarding — but passes SSE chunks back to your app without buffering:
 
-```
-Your App → toongate → compress request → upstream
-                             ↓
-Your App ← SSE chunks ← upstream (streamed live)
-                             ↓
-                    write savings to D1 after [DONE]
+```mermaid
+sequenceDiagram
+    participant App as Your App
+    participant TG as toongate
+    participant US as Upstream
+
+    App->>TG: Request (stream: true)
+    TG->>TG: Compress request payload
+    TG->>US: Forward compressed request
+    US-->>TG: SSE chunks (streamed live)
+    TG-->>App: SSE chunks (pass-through)
+    US-->>TG: [DONE]
+    TG->>TG: Write savings to D1 (fire-and-forget)
 ```
 
 Token savings are calculated from accumulated chunk metadata after the stream ends, then written to D1 fire-and-forget. Your streaming experience is unaffected.
