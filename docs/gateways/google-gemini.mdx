@@ -7,8 +7,10 @@ description: Use toongate in front of Google Gemini via its OpenAI-compatible en
 
 toongate exposes a dedicated prefix `/gemini/v1/*` for Google Gemini. It targets Gemini's [OpenAI-compatible endpoint](https://ai.google.dev/gemini-api/docs/openai), so the request and response schema is identical to OpenAI — no transformation needed.
 
-```
-Your App  →  toongate /gemini/v1/chat/completions  →  generativelanguage.googleapis.com/v1beta/openai/chat/completions
+```mermaid
+flowchart LR
+    A[Your App] --> B[toongate\n/gemini/v1/chat/completions]
+    B --> C[generativelanguage.googleapis.com\n/v1beta/openai/chat/completions]
 ```
 
 Vertex AI is also supported via `GEMINI_UPSTREAM_URL`.

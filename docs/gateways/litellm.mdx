@@ -22,8 +22,11 @@ const openai = new OpenAI({
 
 The request flows:
 
-```
-Your App → toongate (compress) → LiteLLM proxy (route) → any LLM
+```mermaid
+flowchart LR
+    A[Your App] --> B["toongate\n(compress)"]
+    B --> C["LiteLLM proxy\n(route)"]
+    C --> D[any LLM]
 ```
 
 ---

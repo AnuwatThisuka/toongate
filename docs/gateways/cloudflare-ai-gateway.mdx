@@ -22,8 +22,11 @@ const openai = new OpenAI({
 
 toongate sits in front of Cloudflare AI Gateway — it compresses the payload, then forwards to the gateway (which handles caching, logging, fallbacks) as normal.
 
-```
-Your App → toongate → CF AI Gateway → OpenAI
+```mermaid
+flowchart LR
+    A[Your App] --> B[toongate]
+    B --> C[CF AI Gateway]
+    C --> D[OpenAI]
 ```
 
 ---

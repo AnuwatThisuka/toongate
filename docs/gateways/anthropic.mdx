@@ -49,8 +49,10 @@ toongate compresses the request payload, forwards it to `https://api.anthropic.c
 
 toongate injects `ANTHROPIC_API_KEY` as the `x-api-key` header on every request to `/v1/messages`. You do not need to set it in your SDK client — toongate adds it automatically.
 
-```
-Your App (no key) → toongate (injects x-api-key) → Anthropic
+```mermaid
+flowchart LR
+    A["Your App\n(no key)"] --> B["toongate\n(injects x-api-key)"]
+    B --> C[Anthropic]
 ```
 
 ---

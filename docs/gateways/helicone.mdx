@@ -25,8 +25,11 @@ const openai = new OpenAI({
 
 The request flows through both layers:
 
-```
-Your App → toongate (compress) → Helicone (log) → OpenAI
+```mermaid
+flowchart LR
+    A[Your App] --> B["toongate\n(compress)"]
+    B --> C["Helicone\n(log)"]
+    C --> D[OpenAI]
 ```
 
 ---
