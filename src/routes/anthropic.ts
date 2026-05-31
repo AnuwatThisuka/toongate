@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { compressRequestBody } from "../lib/compress";
+import { deepCompressBody } from "../lib/deep-compress";
 import { decodeFromToon } from "../lib/decoder";
 import { applyDebugHeaders } from "../lib/headers";
 import { calcUsdSaved } from "../lib/pricing";
@@ -58,7 +58,7 @@ async function proxy(
   const model = typeof body.model === "string" ? body.model : "unknown";
   const threshold = resolveThreshold(env, endpoint);
 
-  const result = compressRequestBody(body, bodyText, threshold);
+  const result = deepCompressBody(body, threshold);
   const outBodyText =
     env.TOON_DRY_RUN === "true" ? bodyText : result.bodyText;
 
@@ -108,6 +108,7 @@ async function proxy(
         tokens_saved: result.tokensSaved,
         usd_saved: calcUsdSaved(model, result.tokensSaved),
         elapsed_ms: elapsed,
+        deep_compressed: "deepCompressed" in result && result.deepCompressed ? 1 : 0,
       },
       c.executionCtx,
     );

@@ -80,7 +80,7 @@ export function compressRequestBody(
     bodyText: compressedText,
     tokensBefore,
     tokensAfter,
-    tokensSaved: tokensBefore - tokensAfter,
+    tokensSaved: Math.max(0, tokensBefore - tokensAfter),
     eligibilityScore: maxScore,
     compressed: true,
   };
