@@ -45,18 +45,41 @@ toongate encodes only when it helps — uniform arrays of objects (RAG chunks, D
 
 ---
 
+## Benchmarks
+
+> Tested on real traffic · Cloudflare Workers (Singapore edge) · 50 requests per payload · concurrency 10
+
+| Payload                  | Tokens saved   | Saving %  | Compressed          |
+| ------------------------ | -------------- | --------- | ------------------- |
+| DB rows (10 rows)        | 177 tokens/req | **48.6%** | 100%                |
+| Product catalog (8 rows) | 108 tokens/req | **41.4%** | 100%                |
+| RAG chunks (5 rows)      | 32 tokens/req  | 12.0%†    | 100%                |
+| Plain text               | 0 tokens/req   | 0%        | 0% (pass-through ✓) |
+
+† RAG savings scale with row count — 10+ rows yields ~40%. The sweet spot is uniform arrays with 10 or more objects.
+
+**Real savings from 100 requests (mixed payloads):**
+
+- 3,672 tokens saved
+- $0.0092 estimated cost reduction (typhoon-v2.5-30b-a3b-instruct pricing)
+- 74.2% of requests compressed
+
+---
+
 ## What gets compressed
 
 toongate uses the [TOON format](https://toonformat.dev) to encode structured data in prompt payloads. The sweet spot is uniform arrays of objects — where JSON repeats field names for every row:
 
-| Payload type | Compression | Example |
-| --- | --- | --- |
-| Uniform array of objects | **~40% fewer tokens** | RAG chunks, DB rows, product catalogs, event logs |
-| Mixed structured data | ~20–30% | Prompts with both tables and nested objects |
-| Free-form text | 0% (pass-through) | Plain Q&A, summaries, creative prompts |
-| Deeply nested non-uniform JSON | 0% (pass-through) | Complex config objects |
+| Payload type                   | Compression           | Example                                           |
+| ------------------------------ | --------------------- | ------------------------------------------------- |
+| Uniform array of objects       | **~40% fewer tokens** | RAG chunks, DB rows, product catalogs, event logs |
+| Mixed structured data          | ~20–30%               | Prompts with both tables and nested objects       |
+| Free-form text                 | 0% (pass-through)     | Plain Q&A, summaries, creative prompts            |
+| Deeply nested non-uniform JSON | 0% (pass-through)     | Complex config objects                            |
 
 Accuracy is slightly _higher_ with TOON — explicit `[N]` length markers and `{fields}` headers give models a clearer schema to follow (76.4% vs 75.0% on [official benchmarks](https://toonformat.dev/guide/benchmarks.html)).
+
+**Deep compression:** toongate also detects JSON arrays embedded inside `content[].text` strings — the common pattern when passing RAG results or DB rows as stringified JSON. These are decoded, TOON-encoded, and a TOON context line is injected so the model can decode them correctly.
 
 ---
 
@@ -126,23 +149,23 @@ Point your SDK at the deployed worker URL instead of your gateway directly.
 
 All configuration is via environment variables. In production, set secrets with `wrangler secret put <NAME>`.
 
-| Variable | Example | Description |
-| --- | --- | --- |
-| `UPSTREAM_URL` | `https://api.openai.com/v1` | Upstream base URL for `/v1/*` (OpenAI / Anthropic) routes. See `.dev.vars.example` for all options. |
-| `OPENAI_API_KEY` | `sk-...` | Injected as `Authorization: Bearer` on `/v1/*` OpenAI routes. |
-| `ANTHROPIC_API_KEY` | `sk-ant-...` | Injected as `x-api-key` on `/v1/messages`. |
-| `AZURE_OPENAI_API_KEY` | `...` | Injected as `api-key` header on `/azure/v1/*` routes. |
-| `AZURE_OPENAI_ENDPOINT` | `https://my-resource.openai.azure.com` | Azure resource endpoint. Required to enable Azure routes. |
-| `AZURE_OPENAI_API_VERSION` | `2024-02-01` | Azure API version. Defaults to `2024-02-01` when unset. |
-| `GEMINI_API_KEY` | `AIza...` | Injected as `Authorization: Bearer` on `/gemini/v1/*` routes. |
-| `GEMINI_UPSTREAM_URL` | `https://…aiplatform.googleapis.com/…` | Override Gemini upstream for Vertex AI. Defaults to `https://generativelanguage.googleapis.com/v1beta/openai`. |
-| `CF_AIG_TOKEN` | `vck_...` | Cloudflare AI Gateway auth token. Accepts bare token or `Bearer token` — normalized automatically. |
-| `TOON_THRESHOLD` | `0.6` | Min tabular eligibility score (0–1) before encoding. Lower = more aggressive. |
-| `TOON_THRESHOLD_CHAT` | `0.5` | Per-route override for `/v1/chat/completions`, `/azure/v1/chat/completions`, `/gemini/v1/chat/completions`. |
-| `TOON_THRESHOLD_EMBEDDINGS` | `0.8` | Per-route override for embeddings routes across all providers. |
-| `TOON_LOG_SAVINGS` | `true` | Write per-request savings rows to D1. |
-| `ADMIN_KEY` | _(random string)_ | Protects all `/savings/*` routes. When unset, those routes return `404`. |
-| `PROXY_AUTH_KEY` | _(random string)_ | When set, all proxy routes (`/v1/*`, `/azure/v1/*`, `/gemini/v1/*`) require `Authorization: Bearer <value>`. When unset, returns `401` — set this to enable access. |
+| Variable                    | Example                                | Description                                                                                                                                                         |
+| --------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UPSTREAM_URL`              | `https://api.openai.com/v1`            | Upstream base URL for `/v1/*` (OpenAI / Anthropic) routes. See `.dev.vars.example` for all options.                                                                 |
+| `OPENAI_API_KEY`            | `sk-...`                               | Injected as `Authorization: Bearer` on `/v1/*` OpenAI routes.                                                                                                       |
+| `ANTHROPIC_API_KEY`         | `sk-ant-...`                           | Injected as `x-api-key` on `/v1/messages`.                                                                                                                          |
+| `AZURE_OPENAI_API_KEY`      | `...`                                  | Injected as `api-key` header on `/azure/v1/*` routes.                                                                                                               |
+| `AZURE_OPENAI_ENDPOINT`     | `https://my-resource.openai.azure.com` | Azure resource endpoint. Required to enable Azure routes.                                                                                                           |
+| `AZURE_OPENAI_API_VERSION`  | `2024-02-01`                           | Azure API version. Defaults to `2024-02-01` when unset.                                                                                                             |
+| `GEMINI_API_KEY`            | `AIza...`                              | Injected as `Authorization: Bearer` on `/gemini/v1/*` routes.                                                                                                       |
+| `GEMINI_UPSTREAM_URL`       | `https://…aiplatform.googleapis.com/…` | Override Gemini upstream for Vertex AI. Defaults to `https://generativelanguage.googleapis.com/v1beta/openai`.                                                      |
+| `CF_AIG_TOKEN`              | `vck_...`                              | Cloudflare AI Gateway auth token. Accepts bare token or `Bearer token` — normalized automatically.                                                                  |
+| `TOON_THRESHOLD`            | `0.6`                                  | Min tabular eligibility score (0–1) before encoding. Lower = more aggressive.                                                                                       |
+| `TOON_THRESHOLD_CHAT`       | `0.5`                                  | Per-route override for `/v1/chat/completions`, `/azure/v1/chat/completions`, `/gemini/v1/chat/completions`.                                                         |
+| `TOON_THRESHOLD_EMBEDDINGS` | `0.8`                                  | Per-route override for embeddings routes across all providers.                                                                                                      |
+| `TOON_LOG_SAVINGS`          | `true`                                 | Write per-request savings rows to D1.                                                                                                                               |
+| `ADMIN_KEY`                 | _(random string)_                      | Protects all `/savings/*` routes. When unset, those routes return `404`.                                                                                            |
+| `PROXY_AUTH_KEY`            | _(random string)_                      | When set, all proxy routes (`/v1/*`, `/azure/v1/*`, `/gemini/v1/*`) require `Authorization: Bearer <value>`. When unset, returns `401` — set this to enable access. |
 
 **Note on `UPSTREAM_URL`:** toongate strips the `/v1` prefix from incoming paths before appending to `UPSTREAM_URL`, so `UPSTREAM_URL` should end in `/v1` (or the equivalent base for your gateway). For Anthropic direct, set `UPSTREAM_URL=https://api.anthropic.com`.
 
@@ -166,9 +189,18 @@ curl https://toongate.workers.dev/savings/summary \
 
 ```json
 {
-  "overall": { "requests": 120, "total_tokens_saved": 45000, "total_usd_saved": 0.135 },
+  "overall": {
+    "requests": 120,
+    "total_tokens_saved": 45000,
+    "total_usd_saved": 0.135
+  },
   "by_model": [
-    { "model": "gpt-4o", "requests": 80, "total_tokens_saved": 32000, "total_usd_saved": 0.096 }
+    {
+      "model": "gpt-4o",
+      "requests": 80,
+      "total_tokens_saved": 32000,
+      "total_usd_saved": 0.096
+    }
   ]
 }
 ```
@@ -182,7 +214,12 @@ curl https://toongate.workers.dev/savings/by-model \
 ```json
 {
   "rows": [
-    { "model": "gpt-4o", "request_count": 80, "tokens_saved": 32000, "usd_saved": 0.096 }
+    {
+      "model": "gpt-4o",
+      "request_count": 80,
+      "tokens_saved": 32000,
+      "usd_saved": 0.096
+    }
   ]
 }
 ```
@@ -238,15 +275,16 @@ savings (
 
 toongate is a transparent proxy — it speaks the same OpenAI-compatible protocol as its upstream. Works with anything that supports a custom `baseURL`.
 
-| Gateway / Provider | Route prefix | Status |
-| --- | --- | --- |
-| OpenAI direct | `/v1/*` | Supported |
-| Anthropic direct | `/v1/messages` | Supported |
-| Azure OpenAI | `/azure/v1/*` | Supported |
-| Google Gemini | `/gemini/v1/*` | Supported |
-| Cloudflare AI Gateway | `/v1/*` | Supported |
-| Helicone | `/v1/*` | Supported |
-| LiteLLM | `/v1/*` | Supported |
+| Gateway / Provider    | Route prefix   | Status    |
+| --------------------- | -------------- | --------- |
+| OpenAI direct         | `/v1/*`        | Supported |
+| Anthropic direct      | `/v1/messages` | Supported |
+| Azure OpenAI          | `/azure/v1/*`  | Supported |
+| Google Gemini         | `/gemini/v1/*` | Supported |
+| Cloudflare AI Gateway | `/v1/*`        | Supported |
+| Helicone              | `/v1/*`        | Supported |
+| LiteLLM               | `/v1/*`        | Supported |
+| OpenRouter            | `/v1/*`        | Supported |
 
 ---
 
@@ -269,6 +307,7 @@ src/
     ├── encoder.ts        # JSON → TOON via @toon-format/toon
     ├── decoder.ts        # TOON → JSON, falls back gracefully on error
     ├── eligibility.ts    # Tabular eligibility scoring (0–1)
+    ├── deep-compress.ts  # Detects + compresses JSON arrays embedded in content[].text
     ├── safe-compare.ts   # Constant-time string comparison for auth keys
     ├── savings.ts        # D1 prepared-statement insert, fire-and-forget
     └── pricing.ts        # Token → USD cost per model (generated from LiteLLM)
@@ -300,9 +339,9 @@ npm run generate:pricing  # fetch latest model prices from LiteLLM → src/lib/p
 
 Two scripts are available in `benchmark/`:
 
-| Script | What it does |
-|---|---|
-| `toongate-loadtest.sh` | Smoke-test — 100 requests, 4 payload types, compression rate + verdict |
+| Script                   | What it does                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| `toongate-loadtest.sh`   | Smoke-test — 100 requests, 4 payload types, compression rate + verdict             |
 | `toongate-benchmark.mjs` | Full benchmark — compression ratio, latency overhead vs direct, throughput (req/s) |
 
 ```bash
@@ -315,7 +354,7 @@ benchmark/toongate-loadtest.sh https://toongate.workers.dev <admin> <proxy>
 # Args: <toongate-url> <direct-url> [admin-key] [proxy-key]
 # Env:  PROXY_AUTH_KEY, OPENAI_API_KEY (for direct upstream latency/throughput)
 PROXY_AUTH_KEY=xxx OPENAI_API_KEY=sk-... \
-  node benchmark/toongate-benchmark.mjs http://localhost:8787 https://api.opentyphoon.ai
+  node benchmark/toongate-benchmark.mjs http://localhost:8787 https://api.openai.com
 ```
 
 ---
