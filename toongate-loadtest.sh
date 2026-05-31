@@ -38,58 +38,16 @@ echo ""
 # ── Payloads ────────────────────────────────────────────────
 
 # 1. RAG chunks (high compression expected ~40%)
-RAG_PAYLOAD='{
-  "model": "gpt-4o-mini",
-  "messages": [{
-    "role": "user",
-    "content": "Summarize these search results:\n'"$(cat <<'JSON'
-[
-  {"id":1,"title":"Introduction to TOON Format","score":0.91,"url":"https://toonformat.dev/intro","snippet":"TOON is a compact encoding for uniform arrays of objects, reducing token count by up to 40%."},
-  {"id":2,"title":"Cloudflare Workers Overview","score":0.87,"url":"https://workers.cloudflare.com","snippet":"Run code at the edge globally with sub-millisecond cold starts and zero server management."},
-  {"id":3,"title":"LLM Token Cost Optimization","score":0.84,"url":"https://example.com/llm-costs","snippet":"Token costs add up fast at scale. Structured data compression is one of the most effective strategies."},
-  {"id":4,"title":"RAG Pipeline Best Practices","score":0.79,"url":"https://example.com/rag","snippet":"Retrieval-augmented generation works best when chunks are uniform and well-structured."},
-  {"id":5,"title":"Hono Framework for Workers","score":0.76,"url":"https://hono.dev","snippet":"Hono is a lightweight, ultrafast web framework designed for Cloudflare Workers and edge runtimes."}
-]
-JSON
-)"
-  }]
-}'
+# content is an array of parts so toongate can compress the structured data chunk
+RAG_PAYLOAD='{"model":"gpt-4o-mini","messages":[{"role":"user","content":[{"type":"text","text":"Summarize these search results:"},{"type":"text","text":"[{\"id\":1,\"title\":\"Introduction to TOON Format\",\"score\":0.91,\"url\":\"https://toonformat.dev/intro\",\"snippet\":\"TOON is a compact encoding for uniform arrays of objects, reducing token count by up to 40%.\"},{\"id\":2,\"title\":\"Cloudflare Workers Overview\",\"score\":0.87,\"url\":\"https://workers.cloudflare.com\",\"snippet\":\"Run code at the edge globally with sub-millisecond cold starts and zero server management.\"},{\"id\":3,\"title\":\"LLM Token Cost Optimization\",\"score\":0.84,\"url\":\"https://example.com/llm-costs\",\"snippet\":\"Token costs add up fast at scale. Structured data compression is one of the most effective strategies.\"},{\"id\":4,\"title\":\"RAG Pipeline Best Practices\",\"score\":0.79,\"url\":\"https://example.com/rag\",\"snippet\":\"Retrieval-augmented generation works best when chunks are uniform and well-structured.\"},{\"id\":5,\"title\":\"Hono Framework for Workers\",\"score\":0.76,\"url\":\"https://hono.dev\",\"snippet\":\"Hono is a lightweight, ultrafast web framework designed for Cloudflare Workers and edge runtimes.\"}]"}]}]}'
 
 # 2. DB rows (high compression expected ~38%)
-DB_PAYLOAD='{
-  "model": "gpt-4o-mini",
-  "messages": [{
-    "role": "user",
-    "content": "Analyze this user data and identify patterns:\n'"$(cat <<'JSON'
-[
-  {"user_id":1001,"name":"Alice Chen","plan":"pro","requests_today":842,"tokens_used":124500,"joined":"2024-01-15"},
-  {"user_id":1002,"name":"Bob Smith","plan":"free","requests_today":23,"tokens_used":4200,"joined":"2024-03-01"},
-  {"user_id":1003,"name":"Carol Lee","plan":"enterprise","requests_today":5241,"tokens_used":892000,"joined":"2023-11-20"},
-  {"user_id":1004,"name":"David Kim","plan":"pro","requests_today":312,"tokens_used":48900,"joined":"2024-02-10"},
-  {"user_id":1005,"name":"Eve Johnson","plan":"free","requests_today":8,"tokens_used":1100,"joined":"2024-04-05"}
-]
-JSON
-)"
-  }]
-}'
+# content is an array of parts so toongate can compress the structured data chunk
+DB_PAYLOAD='{"model":"gpt-4o-mini","messages":[{"role":"user","content":[{"type":"text","text":"Analyze this user data and identify patterns:"},{"type":"text","text":"[{\"user_id\":1001,\"name\":\"Alice Chen\",\"plan\":\"pro\",\"requests_today\":842,\"tokens_used\":124500,\"joined\":\"2024-01-15\"},{\"user_id\":1002,\"name\":\"Bob Smith\",\"plan\":\"free\",\"requests_today\":23,\"tokens_used\":4200,\"joined\":\"2024-03-01\"},{\"user_id\":1003,\"name\":\"Carol Lee\",\"plan\":\"enterprise\",\"requests_today\":5241,\"tokens_used\":892000,\"joined\":\"2023-11-20\"},{\"user_id\":1004,\"name\":\"David Kim\",\"plan\":\"pro\",\"requests_today\":312,\"tokens_used\":48900,\"joined\":\"2024-02-10\"},{\"user_id\":1005,\"name\":\"Eve Johnson\",\"plan\":\"free\",\"requests_today\":8,\"tokens_used\":1100,\"joined\":\"2024-04-05\"}]"}]}]}'
 
 # 3. Product catalog (high compression expected ~42%)
-PRODUCT_PAYLOAD='{
-  "model": "gpt-4o-mini",
-  "messages": [{
-    "role": "user",
-    "content": "Which products should I recommend to a developer?\n'"$(cat <<'JSON'
-[
-  {"sku":"TOOL-001","name":"Claude API Access","category":"AI","price":20.00,"stock":999,"rating":4.9},
-  {"sku":"TOOL-002","name":"GitHub Copilot","category":"AI","price":19.00,"stock":999,"rating":4.7},
-  {"sku":"TOOL-003","name":"Vercel Pro","category":"Hosting","price":20.00,"stock":999,"rating":4.8},
-  {"sku":"TOOL-004","name":"PlanetScale","category":"Database","price":29.00,"stock":999,"rating":4.6},
-  {"sku":"TOOL-005","name":"Cloudflare Workers","category":"Edge","price":5.00,"stock":999,"rating":4.9}
-]
-JSON
-)"
-  }]
-}'
+# content is an array of parts so toongate can compress the structured data chunk
+PRODUCT_PAYLOAD='{"model":"gpt-4o-mini","messages":[{"role":"user","content":[{"type":"text","text":"Which products should I recommend to a developer?"},{"type":"text","text":"[{\"sku\":\"TOOL-001\",\"name\":\"Claude API Access\",\"category\":\"AI\",\"price\":20.00,\"stock\":999,\"rating\":4.9},{\"sku\":\"TOOL-002\",\"name\":\"GitHub Copilot\",\"category\":\"AI\",\"price\":19.00,\"stock\":999,\"rating\":4.7},{\"sku\":\"TOOL-003\",\"name\":\"Vercel Pro\",\"category\":\"Hosting\",\"price\":20.00,\"stock\":999,\"rating\":4.8},{\"sku\":\"TOOL-004\",\"name\":\"PlanetScale\",\"category\":\"Database\",\"price\":29.00,\"stock\":999,\"rating\":4.6},{\"sku\":\"TOOL-005\",\"name\":\"Cloudflare Workers\",\"category\":\"Edge\",\"price\":5.00,\"stock\":999,\"rating\":4.9}]"}]}]}'
 
 # 4. Plain text (no compression expected — baseline)
 TEXT_PAYLOAD='{
