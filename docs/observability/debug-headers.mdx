@@ -9,13 +9,16 @@ Every response from toongate includes these headers, regardless of whether compr
 
 | Header | Example | Description |
 |---|---|---|
-| `X-Toongate-Compressed` | `true` | Whether the request payload was compressed |
+| `X-Toongate-Compressed` | `true` | Whether the request payload was compressed (top-level or deep) |
+| `X-Toongate-Deep-Compressed` | `true` | Whether compression was triggered by a JSON array found inside a `content[].text` string |
 | `X-Toongate-Tokens-Before` | `1420` | Estimated token count before compression |
 | `X-Toongate-Tokens-After` | `851` | Estimated token count after compression |
-| `X-Toongate-Tokens-Saved` | `569` | Tokens saved (`before - after`) |
+| `X-Toongate-Tokens-Saved` | `569` | Tokens saved (`before - after`, always ≥ 0) |
 | `X-Toongate-Eligibility-Score` | `0.84` | Eligibility score (0–1) from the scorer |
 
 When `X-Toongate-Compressed: false`, tokens-before equals tokens-after and tokens-saved is `0`.
+
+`X-Toongate-Deep-Compressed: true` means the structured data was found inside a `content[].text` string (the common RAG/DB-row pattern) rather than as a native array. Both cases save tokens equally — the header is informational.
 
 ---
 
@@ -63,6 +66,7 @@ curl -si https://toongate.workers.dev/v1/chat/completions \
   | grep -i x-toongate
 
 # x-toongate-compressed: true
+# x-toongate-deep-compressed: true
 # x-toongate-tokens-before: 1420
 # x-toongate-tokens-after: 851
 # x-toongate-tokens-saved: 569

@@ -21,7 +21,8 @@ CREATE TABLE savings (
   tokens_after INTEGER,
   tokens_saved INTEGER,
   usd_saved REAL,
-  elapsed_ms INTEGER
+  elapsed_ms INTEGER,
+  deep_compressed INTEGER DEFAULT 0
 );
 ```
 
@@ -33,9 +34,10 @@ CREATE TABLE savings (
 | `endpoint` | Route path (e.g. `/v1/chat/completions`) |
 | `tokens_before` | Estimated token count before compression |
 | `tokens_after` | Estimated token count after compression |
-| `tokens_saved` | `tokens_before - tokens_after` |
+| `tokens_saved` | `tokens_before - tokens_after` (always ≥ 0) |
 | `usd_saved` | Estimated cost savings in USD based on per-model pricing |
 | `elapsed_ms` | Total time from request received to response returned |
+| `deep_compressed` | `1` if compression was triggered by a JSON array embedded in `content[].text`, `0` otherwise |
 
 ---
 

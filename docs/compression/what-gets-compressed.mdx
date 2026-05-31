@@ -75,12 +75,12 @@ Mixed content — prompts that combine structured tables with free-form text sec
 
 ## Tips to maximize savings
 
-**1. Use a content array — not a plain string**
+**1. You can embed JSON arrays inside `content[].text` — toongate will find them**
 
-The eligibility scorer inspects `messages[].content` as structured data. Plain strings always score `0.0` and pass through unchanged — even if they contain JSON text.
+toongate runs a deep compression pass that detects JSON arrays embedded as strings inside `content[].text` and compresses them automatically. Both patterns below work:
 
 ```typescript
-// ✅ Good — content is an array (OpenAI multimodal format)
+// ✅ Embedded JSON string — deep compression handles this
 {
   role: "user",
   content: [
@@ -89,10 +89,20 @@ The eligibility scorer inspects `messages[].content` as structured data. Plain s
   ],
 }
 
-// ❌ Won't compress — plain string scores 0.0
+// ✅ Native array content — top-level compression handles this
+{
+  role: "user",
+  content: myDataArray,
+}
+
+// ❌ Plain string with no array — scores 0.0, no compression
 { role: "user", content: JSON.stringify(myDataArray) }
 { role: "user", content: `Here is the data: ${JSON.stringify(myDataArray)} please analyze` }
 ```
+
+<Tip>
+  The embedded JSON string pattern (first example) is how most RAG pipelines naturally send data — toongate's deep compression was built specifically to handle this case.
+</Tip>
 
 **2. Keep object keys consistent across rows**
 
