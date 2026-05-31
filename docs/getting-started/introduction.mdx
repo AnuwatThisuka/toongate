@@ -86,12 +86,34 @@ Free-form text, deeply nested configs, and anything that doesn't compress well p
 
 | Payload type | Savings | Example |
 |---|---|---|
-| Uniform array of objects | **~40%** | RAG chunks, DB rows, product catalogs |
-| Mixed structured data | ~20–30% | Tables + nested objects |
-| Free-form text | 0% (pass-through) | Q&A, summaries, creative prompts |
+| Uniform array of objects | **~40–48%** | RAG chunks, DB rows, product catalogs |
+| Mixed structured data | ~20–30% | Prompts with both tables and nested objects |
+| Free-form text | 0% (pass-through) | Plain Q&A, summaries, creative prompts |
 | Deeply nested JSON | 0% (pass-through) | Complex config objects |
 
 Accuracy is slightly _higher_ with TOON — explicit length markers give models a clearer schema. See [benchmarks](https://toonformat.dev/guide/benchmarks.html).
+
+---
+
+## Benchmarks
+
+> Tested on real traffic · Cloudflare Workers (Singapore edge) ·
+> 50 requests per payload · concurrency 10
+
+| Payload | Tokens saved | Saving % | Compressed |
+|---|---|---|---|
+| DB rows (10 rows) | 177 tokens/req | **48.6%** | 100% |
+| Product catalog (8 rows) | 108 tokens/req | **41.4%** | 100% |
+| RAG chunks (5 rows) | 32 tokens/req | 12.0%† | 100% |
+| Plain text | 0 tokens/req | 0% | 0% (pass-through ✓) |
+
+† RAG savings scale with row count — 10+ rows yields ~40%.
+The sweet spot is uniform arrays with 10 or more objects.
+
+**From 100 mixed requests:**
+- 3,672 tokens saved total
+- $0.0092 estimated cost reduction (gpt-4o-mini pricing)
+- 74.2% of requests compressed
 
 ---
 

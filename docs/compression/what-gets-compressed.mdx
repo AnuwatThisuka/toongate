@@ -161,3 +161,76 @@ curl -si https://toongate.workers.dev/v1/chat/completions \
 ```
 
 If `X-Toongate-Compressed: false` with a low eligibility score, your payload is free-form text and there's nothing to compress — that's expected and correct.
+
+---
+
+## Deep compression
+
+toongate also detects JSON arrays **embedded inside `content[].text` strings** —
+the common pattern when passing RAG results or DB rows as `JSON.stringify(data)`.
+These are decoded, TOON-encoded in place, and a TOON context line is injected
+automatically so the model can decode them correctly. Your app sends and receives
+normal JSON — no changes needed.
+
+<CodeGroup>
+```typescript TypeScript
+// This pattern is detected and deep-compressed automatically
+const openai = new OpenAI({ baseURL: "https://toongate.workers.dev/v1" })
+await openai.chat.completions.create({
+  model: "gpt-4o-mini",
+  messages: [{
+    role: "user",
+    content: [{
+      type: "text",
+      text: JSON.stringify(ragChunks)  // ← toongate sees inside this string
+    }]
+  }]
+})
+// Response header: x-toongate-deep-compressed: true
+```
+
+```python Python
+client = OpenAI(base_url="https://toongate.workers.dev/v1")
+client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{
+        "role": "user",
+        "content": [{
+            "type": "text",
+            "text": json.dumps(rag_chunks)  # ← compressed automatically
+        }]
+    }]
+)
+```
+</CodeGroup>
+
+### How it works
+
+1. toongate scans each `content[].text` field for strings starting with `[`
+2. Attempts `JSON.parse` — if the result is a uniform array with 3+ rows and eligibility ≥ threshold, it TOON-encodes it
+3. Injects a brief TOON context into the system message so the model decodes correctly
+4. On any error (parse failure, encode failure) — falls back silently, original text unchanged
+
+### Response headers when deep compression fires
+
+```
+x-toongate-compressed: true
+x-toongate-deep-compressed: true
+x-toongate-tokens-before: 312
+x-toongate-tokens-after: 281
+x-toongate-tokens-saved: 31
+x-toongate-eligibility-score: 1.00
+```
+
+### Conditions for deep compression
+
+| Condition | Requirement |
+|---|---|
+| String starts with `[` | Quick pre-check before JSON.parse |
+| Valid JSON array | JSON.parse succeeds |
+| Minimum rows | 3 or more objects |
+| Eligibility score | ≥ `TOON_THRESHOLD` (default 0.6) |
+| Uniform keys | All objects share the same fields |
+
+If any condition fails, the text field is passed through unchanged — no errors,
+no side effects.

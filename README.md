@@ -61,7 +61,7 @@ toongate encodes only when it helps — uniform arrays of objects (RAG chunks, D
 **Real savings from 100 requests (mixed payloads):**
 
 - 3,672 tokens saved
-- $0.0092 estimated cost reduction (typhoon-v2.5-30b-a3b-instruct pricing)
+- $0.0092 estimated cost reduction (gpt-4o-mini pricing)
 - 74.2% of requests compressed
 
 ---
