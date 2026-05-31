@@ -30,15 +30,11 @@ const dim    = (s) => `${C.dim}${s}${C.reset}`;
 
 // ── Payloads ─────────────────────────────────────────────────
 //
-// Case A  content = string                 → scorer sees string  → score 0.0
-// Case B  content = [{type,text}×2]        → scorer sees 2-item array → score 1.0
-//                                            but TOON of 2 items rarely shrinks
-// Case C  content = [data objects]         → scorer sees N-item uniform array → score 1.0
-//                                            TOON of N items shrinks reliably ✓
-// Case D  content = string (plain text)    → score 0.0, no compression (correct)
-//
-// Cases A & B are what the current loadtest sends — this script shows why they fail.
-// Case C is what actually triggers compression.
+// Case A  content = string                 → scorer sees string → score 0.0 → no compression
+// Case B  content = [{type,text}×2]        → deep compress detects JSON array inside .text ✓
+//                                            (the common RAG pattern — works since deep-compress)
+// Case C  content = [data objects]         → top-level compress, best savings ✓
+// Case D  content = string (plain text)    → score 0.0, pass-through (correct)
 
 const RAG_ROWS = [
   { id: 1, title: "TOON Format Intro",      score: 0.91, url: "https://toonformat.dev/intro",     snippet: "TOON encodes uniform arrays compactly, cutting tokens by up to 40%." },
@@ -76,8 +72,8 @@ const CASES = [
     },
   },
   {
-    label: "B — content: [{type,text}×2] (text-part array)",
-    note:  "scorer sees 2-item uniform array → score 1.0, but TOON of 2 items rarely shrinks",
+    label: "B — content: [{type,text}×2] (text-part array, embedded JSON)",
+    note:  "deep compress detects JSON array inside .text → compresses ✓ (real-world RAG pattern)",
     payload: {
       model: "gpt-4o-mini",
       messages: [{
@@ -144,6 +140,7 @@ async function probe(payload) {
   return {
     status:     res.status,
     compressed: res.headers.get("x-toongate-compressed"),
+    deep:       res.headers.get("x-toongate-deep-compressed"),
     score:      res.headers.get("x-toongate-eligibility-score"),
     before:     res.headers.get("x-toongate-tokens-before"),
     after:      res.headers.get("x-toongate-tokens-after"),
@@ -182,7 +179,8 @@ for (const { label, note, payload } of CASES) {
     `  ${dim("├─")} HTTP status       : ${r.status === 200 ? green(r.status) : yellow(r.status)} ${dim("(upstream errors are expected without a real API key)")}`
   );
   console.log(`  ${dim("├─")} Eligibility score : ${r.score ?? dim("n/a")}`);
-  console.log(`  ${dim("├─")} Compressed        : ${compressed ? green("true ✓") : red("false ✗")}`);
+  const deepCompressed = r.deep === "true";
+  console.log(`  ${dim("├─")} Compressed        : ${compressed ? green("true ✓") : red("false ✗")}${deepCompressed ? dim(" (deep)") : ""}`);
   console.log(`  ${dim("├─")} Tokens before     : ${r.before ?? dim("n/a")}`);
   console.log(`  ${dim("├─")} Tokens after      : ${r.after  ?? dim("n/a")}`);
   console.log(`  ${dim("├─")} Tokens saved      : ${compressed ? green(r.saved) : dim("0")}`);
@@ -194,15 +192,20 @@ console.log(`${dim("─".repeat(48))}
 
   ${bold("Key takeaways")}
 
-  ${green("✓")} Case C (content = data array) is the format that compresses.
-  ${red("✗")} Case A (string) and Case B (text-parts) put data inside a string
-      — toongate cannot see it as a compressible array.
+  ${green("✓")} Case B (text-parts + embedded JSON) — deep compression detects the JSON
+      array inside content[].text and compresses it. This is the real-world RAG pattern.
 
-  ${bold("Implication for the loadtest script:")}
-  The loadtest sends Case B payloads. The test "passes" the data
-  through but nothing gets compressed. The loadtest payloads need
-  to be restructured (or the loadtest should use Case C format
-  and accept that OpenAI will reject the non-standard content shape).
+  ${green("✓")} Case C (native data array) — top-level compression, best savings.
+
+  ${red("✗")} Case A (plain string content) — no compression. Plain strings score 0.0
+      even when they contain JSON. Wrap content in an array to enable compression.
+
+  ${red("✗")} Case D (plain text) — correct, nothing to compress.
+
+  ${bold("Compression path summary:")}
+  content[].text contains JSON array  →  deep compress  →  X-Toongate-Deep-Compressed: true
+  content is a native data array      →  top-level      →  X-Toongate-Compressed: true
+  content is a plain string           →  pass-through   →  no savings
 
 ${dim("─".repeat(48))}
 `);
