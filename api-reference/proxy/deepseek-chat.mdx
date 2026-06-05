@@ -1,0 +1,81 @@
+---
+title: "POST /deepseek/v1/chat/completions"
+api: "POST https://toongate.workers.dev/deepseek/v1/chat/completions"
+description: DeepSeek chat completions via OpenAI-compatible endpoint with TOON compression.
+---
+
+## Overview
+
+Proxies to DeepSeek's OpenAI-compatible endpoint (`https://api.deepseek.com/v1/chat/completions`) or a custom `DEEPSEEK_UPSTREAM_URL`. The request and response schema is identical to OpenAI.
+
+## Authorization
+
+<ParamField header="Authorization" type="string">
+  Required only when `PROXY_AUTH_KEY` is set on the Worker. Pass `Bearer <PROXY_AUTH_KEY>` to authenticate to toongate itself. `DEEPSEEK_API_KEY` is injected automatically as `Authorization: Bearer` to the upstream — you do not need to set it.
+</ParamField>
+
+## Request body
+
+<ParamField body="model" type="string" required>
+  DeepSeek model ID (e.g. `deepseek-chat`, `deepseek-reasoner`).
+</ParamField>
+
+<ParamField body="messages" type="array" required>
+  Array of message objects. `content` must be an array (not a plain string) for structured data to be eligible — use OpenAI multimodal format with `{ type: "text", text: "..." }` parts.
+</ParamField>
+
+<ParamField body="stream" type="boolean">
+  When `true`, returns SSE events. toongate compresses the request and passes chunks back as-is.
+</ParamField>
+
+## Response headers
+
+| Header | Description |
+|---|---|
+| `X-Toongate-Compressed` | `true` if the request payload was compressed |
+| `X-Toongate-Tokens-Before` | Estimated token count before compression |
+| `X-Toongate-Tokens-After` | Estimated token count after compression |
+| `X-Toongate-Tokens-Saved` | Tokens saved |
+| `X-Toongate-Eligibility-Score` | Eligibility score (0–1) |
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/deepseek/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PROXY_AUTH_KEY" \
+  -d '{
+    "model": "deepseek-chat",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          { "type": "text", "text": "Summarize:" },
+          { "type": "text", "text": "[{\"id\":1,\"title\":\"A\",\"score\":0.9},{\"id\":2,\"title\":\"B\",\"score\":0.8}]" }
+        ]
+      }
+    ]
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "model": "deepseek-chat",
+  "choices": [
+    {
+      "message": { "role": "assistant", "content": "..." },
+      "finish_reason": "stop",
+      "index": 0
+    }
+  ],
+  "usage": { "prompt_tokens": 47, "completion_tokens": 32, "total_tokens": 79 }
+}
+```
+
+```json 503
+{ "error": "DeepSeek is not configured" }
+```
+</ResponseExample>
