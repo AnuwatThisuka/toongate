@@ -1,7 +1,9 @@
 import { Hono, type Context } from "hono";
+import { applyCavemanMode, isCavemanMode } from "../lib/caveman";
 import { compressRequestBody } from "../lib/compress";
 import { decodeFromToon } from "../lib/decoder";
 import { applyDebugHeaders } from "../lib/headers";
+import { estimateTokens } from "../lib/encoder";
 import { calcUsdSaved } from "../lib/pricing";
 import { writeSavings } from "../lib/savings";
 import { createSseDecodeStream } from "../lib/sse";
@@ -30,6 +32,8 @@ function buildUpstreamHeaders(c: Context<{ Bindings: Env }>): Headers {
   headers.delete("content-length");
   // Strip toongate-internal headers — never forward to upstream
   headers.delete("x-toongate-admin-key");
+  headers.delete("x-toongate-mode");
+  headers.delete("x-compression-level");
 
   if (c.env.CF_AIG_TOKEN) {
     const tok = c.env.CF_AIG_TOKEN.startsWith("Bearer ")
@@ -70,16 +74,28 @@ async function proxy(
   const isStreaming = body.stream === true;
   const model = typeof body.model === "string" ? body.model : "unknown";
   const threshold = resolveThreshold(env, endpoint);
+  const originalTokensBefore = estimateTokens(bodyText);
 
-  const result = compressRequestBody(body, bodyText, threshold);
+  const caveman = isCavemanMode(c.req.raw.headers)
+    ? applyCavemanMode(body)
+    : { body, activated: false };
+  const processedBody = caveman.body;
+  const processedText = caveman.activated
+    ? JSON.stringify(processedBody)
+    : bodyText;
+
+  const result = compressRequestBody(processedBody, processedText, threshold);
   const outBodyText = env.TOON_DRY_RUN === "true" ? bodyText : result.bodyText;
+
+  const totalTokensSaved = Math.max(0, originalTokensBefore - result.tokensAfter);
 
   if (env.TOON_DRY_RUN === "true" && result.compressed) {
     console.log(
       `[TOON DRY-RUN] provider=gemini model=${model} endpoint=${endpoint}` +
-        ` tokens_before=${result.tokensBefore} tokens_after=${result.tokensAfter}` +
-        ` tokens_saved=${result.tokensSaved}` +
-        ` usd_saved=${calcUsdSaved(model, result.tokensSaved).toFixed(6)}` +
+        ` tokens_before=${originalTokensBefore} tokens_after=${result.tokensAfter}` +
+        ` tokens_saved=${totalTokensSaved}` +
+        ` caveman=${caveman.activated}` +
+        ` usd_saved=${calcUsdSaved(model, totalTokensSaved).toFixed(6)}` +
         ` — payload NOT compressed`,
     );
   }
@@ -116,11 +132,12 @@ async function proxy(
         ts: new Date().toISOString(),
         model,
         endpoint,
-        tokens_before: result.tokensBefore,
+        tokens_before: originalTokensBefore,
         tokens_after: result.tokensAfter,
-        tokens_saved: result.tokensSaved,
-        usd_saved: calcUsdSaved(model, result.tokensSaved),
+        tokens_saved: totalTokensSaved,
+        usd_saved: calcUsdSaved(model, totalTokensSaved),
         elapsed_ms: elapsed,
+        caveman_mode: caveman.activated ? 1 : 0,
       },
       c.executionCtx,
     );
@@ -128,7 +145,12 @@ async function proxy(
 
   const respHeaders = new Headers(response.headers);
   respHeaders.delete("content-encoding");
-  applyDebugHeaders(respHeaders, result);
+  applyDebugHeaders(respHeaders, result, {
+    tokensBefore: originalTokensBefore,
+    tokensAfter: result.tokensAfter,
+    tokensSaved: totalTokensSaved,
+    cavemanMode: caveman.activated,
+  });
 
   if (isStreaming && response.body) {
     return new Response(response.body.pipeThrough(createSseDecodeStream()), {
