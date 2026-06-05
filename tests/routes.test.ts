@@ -14,6 +14,8 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
     AZURE_OPENAI_API_VERSION: "",
     GEMINI_API_KEY: "",
     GEMINI_UPSTREAM_URL: "",
+    DEEPSEEK_API_KEY: "",
+    DEEPSEEK_UPSTREAM_URL: "",
     TOON_THRESHOLD: "0.6",
     TOON_THRESHOLD_MESSAGES: "",
     TOON_THRESHOLD_CHAT: "",
