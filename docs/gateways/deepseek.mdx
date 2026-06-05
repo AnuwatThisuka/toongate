@@ -1,0 +1,116 @@
+---
+title: DeepSeek
+description: Use toongate in front of DeepSeek via its OpenAI-compatible endpoint.
+---
+
+## How it works
+
+toongate exposes a dedicated prefix `/deepseek/v1/*` for DeepSeek. DeepSeek's API is fully OpenAI-compatible, so the request and response schema is identical — no transformation needed.
+
+```mermaid
+flowchart LR
+    A[Your App] --> B[toongate\n/deepseek/v1/chat/completions]
+    B --> C[api.deepseek.com\n/v1/chat/completions]
+```
+
+A custom upstream can be provided via `DEEPSEEK_UPSTREAM_URL` for self-hosted or compatible deployments.
+
+---
+
+## Setup
+
+```bash
+wrangler secret put DEEPSEEK_API_KEY       # DeepSeek API key
+# Optional — override the upstream base URL:
+wrangler secret put DEEPSEEK_UPSTREAM_URL
+```
+
+For local development, add them to `.dev.vars`:
+
+```ini
+DEEPSEEK_API_KEY=sk-...
+# DEEPSEEK_UPSTREAM_URL=  # leave blank to use the default DeepSeek endpoint
+```
+
+---
+
+## Usage
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://toongate.workers.dev/deepseek/v1",
+  apiKey: "unused", // toongate injects DEEPSEEK_API_KEY automatically
+});
+
+const response = await client.chat.completions.create({
+  model: "deepseek-chat",
+  messages: [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "Summarize:" },
+        { type: "text", text: JSON.stringify(myDataArray) },
+      ],
+    },
+  ],
+});
+```
+
+---
+
+## Supported routes
+
+| Method | toongate path | DeepSeek upstream |
+|--------|--------------|-------------------|
+| `POST` | `/deepseek/v1/chat/completions` | `{upstream}/v1/chat/completions` |
+| `POST` | `/deepseek/v1/embeddings` | `{upstream}/v1/embeddings` |
+
+Default upstream: `https://api.deepseek.com`
+
+---
+
+## Authentication
+
+toongate injects `DEEPSEEK_API_KEY` as `Authorization: Bearer` on every request. You do not need to pass any auth headers from your SDK.
+
+---
+
+## Streaming
+
+Streaming (`stream: true`) is fully supported:
+
+```typescript
+const stream = await client.chat.completions.create({
+  model: "deepseek-chat",
+  messages: [{ role: "user", content: "..." }],
+  stream: true,
+});
+
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+}
+```
+
+---
+
+## Per-route threshold
+
+DeepSeek routes share the same threshold knobs as OpenAI:
+
+```bash
+TOON_THRESHOLD_CHAT=0.5        # applies to /deepseek/v1/chat/completions
+TOON_THRESHOLD_EMBEDDINGS=0.8  # applies to /deepseek/v1/embeddings
+```
+
+---
+
+## Error responses
+
+| Status | Condition |
+|--------|-----------|
+| `401` | `PROXY_AUTH_KEY` is set but the request is missing or has a wrong `Authorization: Bearer` header |
+| `503` | Neither `DEEPSEEK_API_KEY` nor `DEEPSEEK_UPSTREAM_URL` is configured |
+| `504` | Upstream did not respond within `UPSTREAM_TIMEOUT_MS` (default 30 s) |
+| `502` | Any other upstream fetch error |

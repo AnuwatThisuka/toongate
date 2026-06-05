@@ -11,6 +11,9 @@ interface Env {
   // Gemini — set via `wrangler secret put`
   GEMINI_API_KEY: string;
   GEMINI_UPSTREAM_URL: string;      // override for Vertex AI; default: https://generativelanguage.googleapis.com/v1beta/openai
+  // DeepSeek — set via `wrangler secret put`
+  DEEPSEEK_API_KEY: string;
+  DEEPSEEK_UPSTREAM_URL: string;    // override; default: https://api.deepseek.com
   TOON_THRESHOLD: string;
   TOON_THRESHOLD_MESSAGES: string;
   TOON_THRESHOLD_CHAT: string;

@@ -159,13 +159,15 @@ All configuration is via environment variables. In production, set secrets with 
 | `AZURE_OPENAI_API_VERSION`  | `2024-02-01`                           | Azure API version. Defaults to `2024-02-01` when unset.                                                                                                             |
 | `GEMINI_API_KEY`            | `AIza...`                              | Injected as `Authorization: Bearer` on `/gemini/v1/*` routes.                                                                                                       |
 | `GEMINI_UPSTREAM_URL`       | `https://…aiplatform.googleapis.com/…` | Override Gemini upstream for Vertex AI. Defaults to `https://generativelanguage.googleapis.com/v1beta/openai`.                                                      |
+| `DEEPSEEK_API_KEY`          | `sk-...`                               | Injected as `Authorization: Bearer` on `/deepseek/v1/*` routes.                                                                                                     |
+| `DEEPSEEK_UPSTREAM_URL`     | `https://api.deepseek.com`             | Override DeepSeek upstream. Defaults to `https://api.deepseek.com`.                                                                                                 |
 | `CF_AIG_TOKEN`              | `vck_...`                              | Cloudflare AI Gateway auth token. Accepts bare token or `Bearer token` — normalized automatically.                                                                  |
 | `TOON_THRESHOLD`            | `0.6`                                  | Min tabular eligibility score (0–1) before encoding. Lower = more aggressive.                                                                                       |
-| `TOON_THRESHOLD_CHAT`       | `0.5`                                  | Per-route override for `/v1/chat/completions`, `/azure/v1/chat/completions`, `/gemini/v1/chat/completions`.                                                         |
+| `TOON_THRESHOLD_CHAT`       | `0.5`                                  | Per-route override for `/v1/chat/completions`, `/azure/v1/chat/completions`, `/gemini/v1/chat/completions`, `/deepseek/v1/chat/completions`.                         |
 | `TOON_THRESHOLD_EMBEDDINGS` | `0.8`                                  | Per-route override for embeddings routes across all providers.                                                                                                      |
 | `TOON_LOG_SAVINGS`          | `true`                                 | Write per-request savings rows to D1.                                                                                                                               |
 | `ADMIN_KEY`                 | _(random string)_                      | Protects all `/savings/*` routes. When unset, those routes return `404`.                                                                                            |
-| `PROXY_AUTH_KEY`            | _(random string)_                      | When set, all proxy routes (`/v1/*`, `/azure/v1/*`, `/gemini/v1/*`) require `Authorization: Bearer <value>`. When unset, returns `401` — set this to enable access. |
+| `PROXY_AUTH_KEY`            | _(random string)_                      | When set, all proxy routes (`/v1/*`, `/azure/v1/*`, `/gemini/v1/*`, `/deepseek/v1/*`) require `Authorization: Bearer <value>`. When unset, returns `401` — set this to enable access. |
 
 **Note on `UPSTREAM_URL`:** toongate strips the `/v1` prefix from incoming paths before appending to `UPSTREAM_URL`, so `UPSTREAM_URL` should end in `/v1` (or the equivalent base for your gateway). For Anthropic direct, set `UPSTREAM_URL=https://api.anthropic.com`.
 
@@ -280,8 +282,9 @@ toongate is a transparent proxy — it speaks the same OpenAI-compatible protoco
 | OpenAI direct         | `/v1/*`        | Supported |
 | Anthropic direct      | `/v1/messages` | Supported |
 | Azure OpenAI          | `/azure/v1/*`  | Supported |
-| Google Gemini         | `/gemini/v1/*` | Supported |
-| Cloudflare AI Gateway | `/v1/*`        | Supported |
+| Google Gemini         | `/gemini/v1/*`   | Supported |
+| DeepSeek              | `/deepseek/v1/*` | Supported |
+| Cloudflare AI Gateway | `/v1/*`          | Supported |
 | Helicone              | `/v1/*`        | Supported |
 | LiteLLM               | `/v1/*`        | Supported |
 | OpenRouter            | `/v1/*`        | Supported |
@@ -302,6 +305,7 @@ src/
 │   ├── anthropic.ts      # POST /v1/messages
 │   ├── azure.ts          # POST /azure/v1/chat/completions, /azure/v1/embeddings
 │   ├── gemini.ts         # POST /gemini/v1/chat/completions, /gemini/v1/embeddings
+│   ├── deepseek.ts       # POST /deepseek/v1/chat/completions, /deepseek/v1/embeddings
 │   └── savings.ts        # GET /savings/summary, /savings/by-model, /savings/history, /savings/dashboard
 └── lib/
     ├── encoder.ts        # JSON → TOON via @toon-format/toon
