@@ -74,7 +74,8 @@
         "docs/gateways/helicone",
         "docs/gateways/litellm",
         "docs/gateways/azure-openai",
-        "docs/gateways/google-gemini"
+        "docs/gateways/google-gemini",
+        "docs/gateways/deepseek"
       ]
     },
     {
@@ -105,6 +106,8 @@
         "api-reference/proxy/azure-embeddings",
         "api-reference/proxy/gemini-chat",
         "api-reference/proxy/gemini-embeddings",
+        "api-reference/proxy/deepseek-chat",
+        "api-reference/proxy/deepseek-embeddings",
         "api-reference/savings/summary",
         "api-reference/savings/history",
         "api-reference/savings/by-model",

@@ -1,0 +1,61 @@
+---
+title: "POST /deepseek/v1/embeddings"
+api: "POST https://toongate.workers.dev/deepseek/v1/embeddings"
+description: DeepSeek embeddings via OpenAI-compatible endpoint with TOON compression.
+---
+
+## Overview
+
+Proxies to DeepSeek's OpenAI-compatible embeddings endpoint (`https://api.deepseek.com/v1/embeddings`) or a custom `DEEPSEEK_UPSTREAM_URL`.
+
+## Authorization
+
+<ParamField header="Authorization" type="string">
+  Required only when `PROXY_AUTH_KEY` is set. Pass `Bearer <PROXY_AUTH_KEY>`. `DEEPSEEK_API_KEY` is injected automatically.
+</ParamField>
+
+## Request body
+
+<ParamField body="model" type="string" required>
+  DeepSeek embedding model ID.
+</ParamField>
+
+<ParamField body="input" type="string | array" required>
+  Text or array of texts to embed. Arrays of structured objects are eligible for TOON compression.
+</ParamField>
+
+## Response headers
+
+| Header | Description |
+|---|---|
+| `X-Toongate-Compressed` | `true` if the request payload was compressed |
+| `X-Toongate-Tokens-Before` | Estimated token count before compression |
+| `X-Toongate-Tokens-After` | Estimated token count after compression |
+| `X-Toongate-Tokens-Saved` | Tokens saved |
+
+<RequestExample>
+```bash cURL
+curl https://toongate.workers.dev/deepseek/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PROXY_AUTH_KEY" \
+  -d '{
+    "model": "deepseek-embedding",
+    "input": "The quick brown fox"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "object": "list",
+  "data": [{ "object": "embedding", "embedding": [0.01, -0.02, ...], "index": 0 }],
+  "model": "deepseek-embedding",
+  "usage": { "prompt_tokens": 5, "total_tokens": 5 }
+}
+```
+
+```json 503
+{ "error": "DeepSeek is not configured" }
+```
+</ResponseExample>
