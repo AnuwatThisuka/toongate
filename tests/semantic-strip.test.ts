@@ -150,13 +150,13 @@ describe("stripMessages", () => {
 
   it("returns original message reference when content is unchanged", () => {
     const msg = { role: "user", content: "What is a closure?" };
-    const result = stripMessages([msg]) as typeof messages;
+    const result = stripMessages([msg]) as Array<{ role: string; content: string }>;
     expect(result[0]).toBe(msg);
   });
 
   it("returns new object when content changes", () => {
     const msg = { role: "user", content: "Can you please explain closures." };
-    const result = stripMessages([msg]) as typeof messages;
+    const result = stripMessages([msg]) as Array<{ role: string; content: string }>;
     expect(result[0]).not.toBe(msg);
     expect(result[0].role).toBe("user");
   });
@@ -198,5 +198,3 @@ describe("stripMessages", () => {
   });
 });
 
-// Keep a reference so TypeScript doesn't complain about the alias
-type messages = Array<{ role: string; content: unknown }>;
