@@ -57,6 +57,43 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 
 ---
 
+## Rate limiting
+
+toongate supports IP-based rate limiting via the Cloudflare Workers [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/). It is **opt-in** — remove the binding block to disable it with no code changes required.
+
+Add the following to your `wrangler.jsonc` to enable rate limiting:
+
+```jsonc
+"rate_limits": [
+  {
+    "binding": "RATE_LIMITER",
+    "namespace_id": "1001",
+    "simple": {
+      "limit": 60,    // requests per period
+      "period": 60    // period in seconds
+    }
+  }
+]
+```
+
+| Field | Description |
+|---|---|
+| `namespace_id` | Arbitrary unique number. Each distinct `namespace_id` is an independent counter namespace. |
+| `limit` | Maximum number of requests allowed in the period. |
+| `period` | Window size in seconds. Supported values: `10` or `60`. |
+
+Rate limiting is applied **after authentication** on all proxy routes. Clients that exceed the limit receive a `429` response:
+
+```json
+{ "error": "rate limit exceeded" }
+```
+
+When the binding is not configured, all requests pass through without any limiting.
+
+<Note>
+  The `RATE_LIMITER` binding is keyed by client IP (`cf-connecting-ip`). All requests from the same IP share a single counter, regardless of which proxy route they use.
+</Note>
+
 ---
 
 ## Updating model pricing
