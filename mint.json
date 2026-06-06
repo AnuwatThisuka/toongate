@@ -62,7 +62,8 @@
         "docs/compression/what-gets-compressed",
         "docs/compression/toon-format",
         "docs/compression/eligibility-scoring",
-        "docs/compression/dry-run-mode"
+        "docs/compression/dry-run-mode",
+        "docs/compression/caveman-mode"
       ]
     },
     {

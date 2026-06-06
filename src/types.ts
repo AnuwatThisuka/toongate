@@ -8,4 +8,5 @@ export interface SavingsRow {
   usd_saved: number;
   elapsed_ms: number;
   deep_compressed?: number; // 1 = true, 0 = false
+  caveman_mode?: number;    // 1 = true, 0 = false
 }

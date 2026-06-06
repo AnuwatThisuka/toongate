@@ -1,0 +1,276 @@
+---
+title: Caveman Mode
+description: Squeeze extra token savings by injecting a terse system prompt and stripping polite filler phrases before forwarding to the LLM.
+---
+
+## What is Caveman Mode?
+
+Caveman Mode is an opt-in compression layer that runs **before** TOON encoding. When activated it does two things:
+
+1. **Semantic stripping** — removes polite preambles and filler phrases from every message (e.g. "Could you please", "step-by-step", "Thank you")
+2. **System prompt injection** — prepends a strong instruction to the system message telling the LLM to reply as briefly as possible
+
+Both transforms reduce the tokens sent to the upstream LLM. Combined with TOON structural compression, Caveman Mode can push total savings well past what either technique achieves alone.
+
+---
+
+## Activating Caveman Mode
+
+Send either of these request headers:
+
+```http
+x-toongate-mode: caveman
+```
+
+or
+
+```http
+x-compression-level: caveman
+```
+
+toongate strips both headers before forwarding — the upstream LLM never sees them.
+
+<CodeGroup>
+```typescript TypeScript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://toongate.workers.dev/v1",
+  apiKey: process.env.PROXY_AUTH_KEY,
+  defaultHeaders: {
+    "x-toongate-mode": "caveman",
+  },
+});
+
+const response = await client.chat.completions.create({
+  model: "gpt-4o-mini",
+  messages: [
+    {
+      role: "user",
+      content:
+        "Could you please carefully explain step-by-step how the TCP handshake works. Thank you.",
+    },
+  ],
+});
+```
+
+```python Python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://toongate.workers.dev/v1",
+    api_key=os.environ["PROXY_AUTH_KEY"],
+    default_headers={"x-toongate-mode": "caveman"},
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {
+            "role": "user",
+            "content": "Could you please carefully explain step-by-step how the TCP handshake works. Thank you.",
+        }
+    ],
+)
+```
+
+```bash cURL
+curl https://toongate.workers.dev/v1/chat/completions \
+  -H "Authorization: Bearer $PROXY_AUTH_KEY" \
+  -H "Content-Type: application/json" \
+  -H "x-toongate-mode: caveman" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [{
+      "role": "user",
+      "content": "Could you please carefully explain step-by-step how the TCP handshake works. Thank you."
+    }]
+  }'
+```
+</CodeGroup>
+
+---
+
+## What happens to the payload
+
+### Step 1 — Semantic stripping
+
+toongate applies a regex pass over every message with string `content`, removing common filler phrases before the request reaches the LLM.
+
+| Phrase stripped | Example |
+|---|---|
+| `Can you / Could you / Would you (please)` | "Can you explain X" → "explain X" |
+| `I'd like you to` / `I need you to` | "I'd like you to list..." → "list..." |
+| `Please (carefully) <verb>` | "Please carefully analyze" → "" |
+| `step-by-step` | "explain step-by-step" → "explain" |
+| `very carefully` | "read very carefully" → "read" |
+| `thoroughly` | "thoroughly check" → "check" |
+| `in detail` | "explain in detail" → "explain" |
+| `Thank you` / `Thanks` | trailing filler removed |
+
+Only string `content` fields are processed. Multi-part content arrays (e.g. `[{ type: "text", text: "..." }]`) are passed through unchanged — the structured parts are left for TOON to handle.
+
+### Step 2 — System prompt injection
+
+After stripping, toongate injects this exact system prompt:
+
+```
+Reply in Caveman style: extremely short, concise, no polite fluff, answer directly, use minimal tokens.
+```
+
+**If a system message already exists**, the caveman prompt is prepended to it:
+
+```json
+// Before
+{ "role": "system", "content": "You are a code review assistant." }
+
+// After
+{
+  "role": "system",
+  "content": "Reply in Caveman style: extremely short, concise, no polite fluff, answer directly, use minimal tokens.\nYou are a code review assistant."
+}
+```
+
+**If no system message exists**, a new one is inserted at index 0 of the messages array.
+
+### Step 3 — TOON compression (unchanged)
+
+After the Caveman transforms, the modified payload proceeds through the normal TOON compression pipeline. Both layers stack.
+
+---
+
+## Token accounting
+
+`tokens_before` always reflects the **original raw request** — before semantic stripping, before TOON. `tokens_after` reflects the **final payload sent to the upstream**. `tokens_saved` is the combined saving from both layers.
+
+```
+tokens_before  = estimateTokens(original request body)
+                 ↓ semantic stripping
+                 ↓ system prompt injection
+                 ↓ TOON encoding
+tokens_after   = estimateTokens(payload sent to upstream)
+tokens_saved   = tokens_before − tokens_after
+```
+
+This means the D1 savings log and the debug headers always show the total end-to-end impact, not just TOON alone.
+
+---
+
+## Response headers
+
+```http
+x-toongate-caveman-mode: true
+x-toongate-compressed: true
+x-toongate-tokens-before: 312
+x-toongate-tokens-after: 198
+x-toongate-tokens-saved: 114
+x-toongate-eligibility-score: 0.84
+x-toongate-deep-compressed: false
+```
+
+`x-toongate-caveman-mode` is only present when the `x-toongate-mode` or `x-compression-level` header was sent. When Caveman Mode is off, the header is omitted entirely.
+
+---
+
+## Telemetry & D1 logging
+
+When `TOON_LOG_SAVINGS=true`, every request writes a row to the `savings` table. Caveman Mode adds a `caveman_mode` column:
+
+| Column | Type | Value |
+|---|---|---|
+| `caveman_mode` | `INTEGER` | `1` when activated, `0` otherwise |
+
+Apply the migration if you haven't already:
+
+```bash
+# Local
+npx wrangler d1 migrations apply toongate-savings --local
+
+# Production
+npx wrangler d1 migrations apply toongate-savings --remote
+```
+
+Query Caveman Mode savings separately:
+
+```sql
+-- Average savings on Caveman Mode requests
+SELECT
+  COUNT(*)                                              AS requests,
+  AVG(tokens_saved * 1.0 / NULLIF(tokens_before, 0))  AS avg_savings_ratio,
+  SUM(tokens_saved)                                    AS total_tokens_saved,
+  ROUND(SUM(usd_saved), 4)                             AS total_usd_saved
+FROM savings
+WHERE caveman_mode = 1;
+```
+
+---
+
+## When to use Caveman Mode
+
+<AccordionGroup>
+  <Accordion title="High-volume production APIs">
+    If you're running thousands of requests per day, even a 10% reduction in prompt tokens adds up fast. Caveman Mode is zero-config on the client side — one header activates it.
+  </Accordion>
+
+  <Accordion title="Internal tooling and agent pipelines">
+    Agents and CLI tools often don't need polished responses. Enabling Caveman Mode forces the model to skip preamble ("Sure! Here's what I found...") and get straight to the answer.
+  </Accordion>
+
+  <Accordion title="When response length matters">
+    The system prompt injection doesn't just save input tokens — it also steers the model toward shorter outputs, which reduces your output token bill too.
+  </Accordion>
+
+  <Accordion title="When NOT to use it">
+    Avoid Caveman Mode when response tone matters: customer-facing chat, formal writing assistance, or any context where "be concise" would hurt the experience. The system prompt is injected globally and cannot be scoped to individual turns.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Combining with TOON compression
+
+Caveman Mode and TOON encoding are fully composable. The pipeline always runs in this order:
+
+```
+Client request
+  → semantic stripping (caveman)
+  → system prompt injection (caveman)
+  → TOON eligibility scoring
+  → TOON encoding (if score ≥ threshold)
+  → upstream LLM
+```
+
+You can verify both are active at once by checking the response headers:
+
+```http
+x-toongate-caveman-mode: true
+x-toongate-compressed: true
+x-toongate-deep-compressed: true
+```
+
+<Tip>
+  Run with `TOON_DRY_RUN=true` first to measure the combined savings before enabling live compression. The `tokens_saved` value in headers and D1 already accounts for both transforms.
+</Tip>
+
+---
+
+## Filler patterns reference
+
+The full list of phrases stripped by semantic stripping:
+
+```
+can you (please) (help me to)?
+could you (please)?
+would you (please)?
+I'd like you to / I would like you to
+I need you to
+please (carefully)? <action verb>
+step-by-step / step by step
+very carefully
+thoroughly
+in (great)? detail
+if you (don't)? mind
+thank you (so much)? / thanks
+```
+
+Matching is case-insensitive. Only string `content` fields are affected — multi-part arrays pass through untouched.

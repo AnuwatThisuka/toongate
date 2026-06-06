@@ -12,8 +12,8 @@ export function writeSavings(
   const promise = db
     .prepare(
       `INSERT INTO savings
-         (ts, model, endpoint, tokens_before, tokens_after, tokens_saved, usd_saved, elapsed_ms, deep_compressed)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (ts, model, endpoint, tokens_before, tokens_after, tokens_saved, usd_saved, elapsed_ms, deep_compressed, caveman_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       row.ts,
@@ -25,6 +25,7 @@ export function writeSavings(
       row.usd_saved,
       row.elapsed_ms,
       row.deep_compressed ?? 0,
+      row.caveman_mode ?? 0,
     )
     .run();
 
