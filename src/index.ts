@@ -6,15 +6,16 @@ import geminiRoutes from "./routes/gemini";
 import deepseekRoutes from "./routes/deepseek";
 import savingsRoutes from "./routes/savings";
 import { proxyAuth } from "./middleware/proxy-auth";
+import { rateLimit } from "./middleware/rate-limit";
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/health", (c) => c.json({ ok: true, version: "0.1.0" }));
 
-app.use("/v1/*", proxyAuth);
-app.use("/azure/*", proxyAuth);
-app.use("/gemini/*", proxyAuth);
-app.use("/deepseek/*", proxyAuth);
+app.use("/v1/*", proxyAuth, rateLimit);
+app.use("/azure/*", proxyAuth, rateLimit);
+app.use("/gemini/*", proxyAuth, rateLimit);
+app.use("/deepseek/*", proxyAuth, rateLimit);
 
 app.route("/", openaiRoutes);
 app.route("/", anthropicRoutes);

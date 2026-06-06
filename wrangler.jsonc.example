@@ -22,6 +22,19 @@
   // Gemini  (/gemini/v1/*)
   //   GEMINI_API_KEY
   //   GEMINI_UPSTREAM_URL  (optional, for Vertex AI override)
+  // Rate limiting — keyed by client IP, applied after auth on all proxy routes.
+  // Remove this block to disable rate limiting (graceful — no code changes needed).
+  // Adjust limit/period to taste; 60 req/min is a conservative default.
+  "rate_limits": [
+    {
+      "binding": "RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 60,
+        "period": 60,
+      },
+    },
+  ],
   "d1_databases": [
     {
       "binding": "DB",

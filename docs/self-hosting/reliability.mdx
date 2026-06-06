@@ -81,8 +81,18 @@ For ongoing monitoring, set up a synthetic uptime check (e.g. via Cloudflare Hea
 
 ---
 
-## Rate limits and quotas
+## Rate limiting
 
-toongate does not impose its own rate limits — it proxies requests as fast as your upstream accepts them. Rate limit responses from the upstream (`429 Too Many Requests`) are returned to your client unchanged.
+toongate includes built-in IP-based rate limiting via the Cloudflare Workers [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/). It is applied after authentication on all proxy routes (`/v1/*`, `/azure/*`, `/gemini/*`, `/deepseek/*`).
 
-If you need rate limiting at the toongate layer (e.g. to protect a shared deployment), use [Cloudflare Rate Limiting](https://developers.cloudflare.com/waf/rate-limiting-rules/) on your Worker route.
+When a client exceeds the limit, toongate returns:
+
+```json
+{ "error": "rate limit exceeded" }
+```
+
+with HTTP status `429`.
+
+Rate limiting is **opt-in** — if the `RATE_LIMITER` binding is not configured in `wrangler.jsonc`, requests pass through without any limiting. See [Configuration](/docs/self-hosting/configuration) for setup instructions.
+
+Rate limit responses from the upstream provider (`429 Too Many Requests`) are always returned to your client unchanged, regardless of whether the toongate rate limiter is enabled.
