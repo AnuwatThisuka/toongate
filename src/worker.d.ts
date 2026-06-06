@@ -25,4 +25,7 @@ interface Env {
   CF_AIG_TOKEN: string;
   ADMIN_KEY: string;
   PROXY_AUTH_KEY: string;
+  // Optional — configure via `rate_limits` binding in wrangler.jsonc.
+  // When unset, rate limiting is skipped gracefully.
+  RATE_LIMITER?: RateLimit;
 }
