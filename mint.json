@@ -63,7 +63,9 @@
         "docs/compression/toon-format",
         "docs/compression/eligibility-scoring",
         "docs/compression/dry-run-mode",
-        "docs/compression/caveman-mode"
+        "docs/compression/caveman-mode",
+        "docs/compression/adaptive-threshold",
+        "docs/compression/per-field-exclusion"
       ]
     },
     {
@@ -76,7 +78,9 @@
         "docs/gateways/litellm",
         "docs/gateways/azure-openai",
         "docs/gateways/google-gemini",
-        "docs/gateways/deepseek"
+        "docs/gateways/deepseek",
+        "docs/gateways/bedrock",
+        "docs/gateways/vertex-ai"
       ]
     },
     {

@@ -103,6 +103,48 @@ For ongoing monitoring, set up a synthetic uptime check (e.g. via Cloudflare Hea
 
 ---
 
+## Circuit breaker
+
+When the upstream LLM provider returns a high rate of errors, toongate's circuit breaker trips to stop sending compressed payloads — it falls back to raw pass-through until the upstream recovers.
+
+### How it works
+
+toongate tracks a **sliding window of the last 20 requests**. When more than 50% of them fail (non-2xx response or network error), the circuit trips:
+
+```
+normal → [errors exceed 50% in last 20 requests] → open (bypass compression)
+open   → [30 seconds pass]                        → half-open (retry)
+half-open → [first request succeeds]              → normal
+```
+
+While open, toongate sends requests to the upstream **without compression**. This ensures your pipeline keeps working even if the LLM provider is returning errors that might be related to the compressed payload shape.
+
+### Recovery
+
+After **30 seconds**, the circuit automatically resets and attempts to serve the next request normally. If that request succeeds, the circuit closes. If not, it trips again.
+
+### Observability
+
+Check the current circuit breaker state via `/metrics`:
+
+```
+# TYPE circuit_breaker_tripped gauge
+circuit_breaker_tripped 0
+
+# TYPE circuit_breaker_errors_in_window gauge
+circuit_breaker_errors_in_window 3
+```
+
+See [Prometheus](/docs/observability/prometheus) for the full metrics reference.
+
+### Fallback table row
+
+| Situation | Behavior |
+|---|---|
+| Circuit breaker open | Request forwarded without compression; savings not logged |
+
+---
+
 ## Rate limiting
 
 toongate includes built-in IP-based rate limiting via the Cloudflare Workers [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/). It is applied after authentication on all proxy routes (`/v1/*`, `/azure/*`, `/gemini/*`, `/deepseek/*`).

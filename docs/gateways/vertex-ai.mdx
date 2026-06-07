@@ -1,0 +1,102 @@
+---
+title: Vertex AI
+description: Use toongate with Google Vertex AI via the OpenAI-compatible Vertex AI endpoint.
+---
+
+## Overview
+
+toongate includes a native Vertex AI route that supports chat completions and embeddings via Vertex AI's OpenAI-compatible endpoint. Your app sends standard OpenAI-format requests; toongate injects your Vertex access token and routes to the correct GCP project and location.
+
+---
+
+## Setup
+
+### 1. Configure Vertex credentials
+
+```bash
+wrangler secret put VERTEX_ACCESS_TOKEN   # short-lived OAuth2 token
+```
+
+```bash
+# In wrangler.jsonc (non-sensitive)
+VERTEX_PROJECT  = "my-gcp-project"
+VERTEX_LOCATION = "us-central1"   # default when unset
+```
+
+The `VERTEX_ACCESS_TOKEN` is a short-lived OAuth2 bearer token. Generate one with:
+
+```bash
+gcloud auth print-access-token
+```
+
+For production, rotate the token before it expires (typically 60 minutes) via an external job that calls `wrangler secret put VERTEX_ACCESS_TOKEN` or the Cloudflare API.
+
+### 2. Point your SDK at toongate
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://toongate.workers.dev/vertex/v1",
+  apiKey: "<PROXY_AUTH_KEY>",  // toongate proxy auth
+});
+
+const chat = await client.chat.completions.create({
+  model: "google/gemini-2.0-flash-001",
+  messages: [{ role: "user", content: "Hello!" }],
+});
+```
+
+---
+
+## Supported routes
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/vertex/v1/chat/completions` | Chat completions via Vertex AI |
+| `POST` | `/vertex/v1/embeddings` | Embeddings via Vertex AI |
+
+---
+
+## How it works
+
+Requests are forwarded to:
+
+```
+https://{location}-aiplatform.googleapis.com/v1beta1/projects/{project}/locations/{location}/endpoints/openapi
+```
+
+The `/vertex` prefix is stripped from the path before forwarding, so `/vertex/v1/chat/completions` becomes `/v1/chat/completions` at the Vertex endpoint.
+
+toongate injects `Authorization: Bearer {VERTEX_ACCESS_TOKEN}` on every request.
+
+---
+
+## Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `VERTEX_PROJECT` | — | Required. GCP project ID. |
+| `VERTEX_LOCATION` | `us-central1` | Vertex AI region. |
+| `VERTEX_ACCESS_TOKEN` | — | Required. Short-lived OAuth2 bearer token. |
+
+---
+
+## Alternative: Gemini route with URL override
+
+If you're using Gemini models and prefer the Gemini route format, you can also point the existing Gemini route at Vertex AI:
+
+```bash
+GEMINI_API_KEY=<your-access-token>
+GEMINI_UPSTREAM_URL=https://us-central1-aiplatform.googleapis.com/v1beta1/projects/my-project/locations/us-central1/endpoints/openapi
+```
+
+Use the native `/vertex/v1/*` route instead if you want explicit region/project configuration via env vars rather than embedding them in the URL.
+
+---
+
+## Notes
+
+- The Vertex route is protected by `PROXY_AUTH_KEY` — all requests require `Authorization: Bearer <PROXY_AUTH_KEY>`.
+- TOON compression, adaptive threshold, circuit breaker, and per-field exclusion are all applied on Vertex routes.
+- Access token expiry is not managed by toongate — rotate `VERTEX_ACCESS_TOKEN` externally before expiry.

@@ -1,0 +1,66 @@
+---
+title: Per-Field Exclusion
+description: Exclude specific message fields from TOON encoding while compressing the rest.
+---
+
+## Overview
+
+By default, toongate encodes the entire content of eligible messages. Per-field exclusion lets you protect specific fields from encoding — they pass through unchanged while the rest of the payload is compressed normally.
+
+---
+
+## Configuration
+
+```bash
+TOON_EXCLUDE_FIELDS=id,session_id,trace_id
+```
+
+Accepts a comma-separated list of top-level field names to exclude from TOON encoding.
+
+---
+
+## How it works
+
+Before encoding, toongate strips the listed fields from each object in the `messages` array (and any other arrays processed by the deep compressor). The stripped fields are reattached after encoding.
+
+**Example** — with `TOON_EXCLUDE_FIELDS=id,ts`:
+
+```json
+// Input message
+{ "role": "user", "content": "...", "id": "msg_01", "ts": 1717234567 }
+
+// Sent to upstream (compressed content, id and ts untouched)
+{ "role": "user", "content": "<TOON encoded>", "id": "msg_01", "ts": 1717234567 }
+```
+
+---
+
+## When to use this
+
+| Use case | Fields to exclude |
+|---|---|
+| Custom IDs you read back from the response | `id`, `message_id` |
+| Audit trail timestamps | `ts`, `created_at`, `timestamp` |
+| Tracing / correlation IDs | `trace_id`, `span_id`, `request_id` |
+| Fields used by downstream middleware | any field your app depends on verbatim |
+
+Only exclude fields that your application reads **after** the request is forwarded. toongate automatically decodes TOON-encoded content in responses, so most fields don't need exclusion.
+
+---
+
+## Scope
+
+Exclusion applies to objects processed inside arrays during deep compression. It does **not** strip top-level request body fields (e.g., `model`, `stream`, `max_tokens`) — those are never encoded by toongate anyway.
+
+---
+
+## Combining with adaptive threshold
+
+Per-field exclusion and adaptive threshold are independent and compose freely:
+
+```bash
+TOON_EXCLUDE_FIELDS=id,ts
+TOON_THRESHOLD_AUTO=true
+```
+
+The threshold is resolved adaptively; the listed fields are excluded from encoding at that threshold.

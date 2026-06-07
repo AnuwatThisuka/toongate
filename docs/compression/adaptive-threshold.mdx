@@ -1,0 +1,85 @@
+---
+title: Adaptive Threshold
+description: Automatically tune the TOON compression threshold based on your historical savings data.
+---
+
+## Overview
+
+The adaptive threshold feature automatically adjusts `TOON_THRESHOLD` based on your actual compression results stored in D1. Instead of guessing a static threshold, toongate analyzes the last 200 savings rows and picks the most appropriate threshold for your traffic patterns.
+
+---
+
+## Enabling adaptive threshold
+
+```bash
+TOON_THRESHOLD_AUTO=true
+```
+
+When enabled, toongate queries D1 at the start of each request (cached for 5 minutes) and resolves a threshold dynamically.
+
+---
+
+## How it works
+
+toongate computes the average compression ratio from the last 200 rows in the savings log:
+
+```
+avg_ratio = avg(tokens_saved / tokens_before)
+```
+
+Then maps that ratio to a threshold:
+
+| Average compression ratio | Resolved threshold |
+|---|---|
+| > 0.40 | `0.40` (very aggressive) |
+| > 0.25 | `0.50` (aggressive) |
+| > 0.10 | `0.60` (balanced) |
+| ≤ 0.10 | `0.70` (conservative) |
+
+**The threshold lowers as your traffic becomes more compressible.** If your payloads consistently compress well, the threshold opens up to catch more of them. If compression ratios are low (mostly free-form text), the threshold rises to avoid unnecessary encoding overhead.
+
+---
+
+## Priority order
+
+Threshold resolution follows this priority:
+
+1. **Route-specific env var** (e.g. `TOON_THRESHOLD_CHAT`) — always wins
+2. **Adaptive threshold** (from D1 history, if `TOON_THRESHOLD_AUTO=true`)
+3. **`TOON_THRESHOLD`** (static fallback, default `0.6`)
+
+Setting a route-specific override disables adaptive behavior for that route.
+
+---
+
+## Caching
+
+The D1 query runs at most once every **5 minutes** per Worker isolate. The result is cached in module-level memory. This means:
+
+- No per-request D1 overhead after the first request in a 5-minute window.
+- Threshold updates lag up to 5 minutes behind actual traffic.
+- Cache resets when the isolate is recycled (typically every few hours).
+
+---
+
+## Fallback behavior
+
+If adaptive threshold is enabled but:
+- D1 is unavailable → falls back to `TOON_THRESHOLD` (or `0.6`)
+- Fewer than 20 rows exist → falls back to `TOON_THRESHOLD` (too little data to be statistically meaningful)
+
+This means enabling `TOON_THRESHOLD_AUTO=true` on a fresh deployment is safe — it silently falls back to the static threshold until enough data accumulates.
+
+---
+
+## Recommended workflow
+
+1. Deploy with `TOON_DRY_RUN=true` and `TOON_THRESHOLD_AUTO=false` for a day or two to accumulate baseline savings data.
+2. Enable `TOON_THRESHOLD_AUTO=true` and disable dry-run.
+3. Monitor the `X-Toon-Threshold` debug header (or `/metrics`) to observe the resolved threshold in production.
+
+---
+
+## Disabling
+
+Remove `TOON_THRESHOLD_AUTO` or set it to any value other than `"true"`. The static `TOON_THRESHOLD` takes over immediately.
