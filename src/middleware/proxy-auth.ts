@@ -5,8 +5,6 @@ export const proxyAuth = createMiddleware<{ Bindings: Env }>(
   async (c, next) => {
     const proxyKey = c.env.PROXY_AUTH_KEY;
 
-    // console.log("proxyKey", c.env);
-
     if (!proxyKey) {
       return c.json({ error: "unauthorized" }, 401);
     }
