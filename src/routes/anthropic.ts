@@ -9,6 +9,9 @@ import { writeSavings } from "../lib/savings";
 import { pushWebhook } from "../lib/webhook";
 import { createSseDecodeStream } from "../lib/sse";
 import { fetchWithRetry } from "../lib/retry";
+import { parseExcludeFields } from "../lib/exclude-fields";
+import { isCircuitOpen, recordOutcome } from "../lib/circuit-breaker";
+import { getAdaptiveThreshold } from "../lib/adaptive-threshold";
 import { resolveThreshold } from "../lib/threshold";
 
 const anthropic = new Hono<{ Bindings: Env }>();
@@ -62,15 +65,24 @@ async function proxy(
 
   const isStreaming = body.stream === true;
   const model = typeof body.model === "string" ? body.model : "unknown";
-  const threshold = resolveThreshold(env, endpoint);
   const originalTokensBefore = estimateTokens(bodyText);
+
+  if (isCircuitOpen()) {
+    return fetchUpstream(c, bodyText, endpoint, start);
+  }
+
+  const adaptiveBase = env.TOON_THRESHOLD_AUTO === "true" && env.DB
+    ? await getAdaptiveThreshold(env.DB, parseFloat(env.TOON_THRESHOLD ?? "0.6"))
+    : undefined;
+  const threshold = resolveThreshold(env, endpoint, adaptiveBase);
+  const excludeFields = parseExcludeFields(env.TOON_EXCLUDE_FIELDS);
 
   const caveman = isCavemanMode(c.req.raw.headers)
     ? applyCavemanMode(body)
     : { body, activated: false };
   const processedBody = caveman.body;
 
-  const result = deepCompressBody(processedBody, threshold);
+  const result = deepCompressBody(processedBody, threshold, excludeFields);
   const outBodyText =
     env.TOON_DRY_RUN === "true" ? bodyText : result.bodyText;
 
@@ -95,12 +107,14 @@ async function proxy(
       getTimeout(env),
     );
   } catch (err) {
+    recordOutcome(false);
     if (err instanceof Error && err.name === "AbortError") {
       return c.json({ error: "upstream timeout" }, 504);
     }
     return c.json({ error: "upstream error" }, 502);
   }
 
+  recordOutcome(response.ok);
   const elapsed = Date.now() - start;
 
   const savingsRow = {

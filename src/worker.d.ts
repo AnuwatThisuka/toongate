@@ -27,6 +27,19 @@ interface Env {
   PROXY_AUTH_KEY: string;
   // Optional — POST savings event as JSON after each request (Slack/Discord/custom webhook).
   SAVINGS_WEBHOOK_URL?: string;
+  // Adaptive threshold — set "true" to auto-tune TOON_THRESHOLD from savings history.
+  TOON_THRESHOLD_AUTO?: string;
+  // Per-field exclusion — comma-separated fields to strip before TOON encoding, e.g. "id,ts".
+  TOON_EXCLUDE_FIELDS?: string;
+  // AWS Bedrock — set via `wrangler secret put`
+  AWS_ACCESS_KEY_ID?: string;
+  AWS_SECRET_ACCESS_KEY?: string;
+  AWS_REGION?: string;           // default: us-east-1
+  AWS_SESSION_TOKEN?: string;    // optional, for temporary credentials
+  // Vertex AI native — set via `wrangler secret put`
+  VERTEX_PROJECT?: string;       // GCP project ID
+  VERTEX_LOCATION?: string;      // default: us-central1
+  VERTEX_ACCESS_TOKEN?: string;  // short-lived OAuth2 access token
   // Optional — configure via `rate_limits` binding in wrangler.jsonc.
   // When unset, rate limiting is skipped gracefully.
   RATE_LIMITER?: RateLimit;
