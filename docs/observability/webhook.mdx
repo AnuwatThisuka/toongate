@@ -1,0 +1,103 @@
+---
+title: Savings Webhook
+description: Push savings events to Slack, Discord, or any HTTP endpoint after each request.
+---
+
+## Overview
+
+Set `SAVINGS_WEBHOOK_URL` to have toongate POST a JSON savings event to your endpoint after every proxied request. The call is fire-and-forget — it never blocks or delays the response to your app.
+
+```bash
+SAVINGS_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
+```
+
+---
+
+## Payload
+
+Every event is a JSON object with the following fields:
+
+```json
+{
+  "ts": "2025-06-07T11:00:00.000Z",
+  "model": "gpt-4o",
+  "endpoint": "/v1/chat/completions",
+  "tokens_before": 1420,
+  "tokens_after": 851,
+  "tokens_saved": 569,
+  "usd_saved": 0.00285,
+  "elapsed_ms": 312,
+  "deep_compressed": false,
+  "caveman_mode": false
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `ts` | string | ISO 8601 timestamp of the request |
+| `model` | string | Model name from the request body |
+| `endpoint` | string | toongate route, e.g. `/v1/chat/completions` |
+| `tokens_before` | number | Estimated tokens before compression |
+| `tokens_after` | number | Estimated tokens after compression |
+| `tokens_saved` | number | `tokens_before - tokens_after` |
+| `usd_saved` | number | Estimated USD saved based on model pricing |
+| `elapsed_ms` | number | Round-trip latency to the upstream provider (ms) |
+| `deep_compressed` | boolean | Whether JSON arrays inside `content[].text` were compressed |
+| `caveman_mode` | boolean | Whether Caveman Mode was applied |
+
+---
+
+## Slack
+
+Create an [incoming webhook](https://api.slack.com/messaging/webhooks) in your Slack workspace, then set:
+
+```bash
+SAVINGS_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
+```
+
+toongate sends a plain JSON POST — Slack will render the raw JSON as an attachment. To get a formatted message, put a small Worker or serverless function in front that formats the payload into Slack's [Block Kit](https://api.slack.com/block-kit) format before forwarding.
+
+<Tip>
+  A lightweight formatter Worker takes ~5 lines and lets you customize exactly what shows up in your `#llm-costs` channel.
+</Tip>
+
+---
+
+## Discord
+
+Create a [Discord webhook](https://support.discord.com/hc/en-us/articles/228383668) for your channel. Discord webhooks expect a `content` or `embeds` field — wrap the payload with a small proxy function, or use `SAVINGS_WEBHOOK_URL` pointing at a Discord-compatible relay.
+
+Alternatively, use a service like [Pipedream](https://pipedream.com) or [Zapier](https://zapier.com) to receive the raw JSON and forward a formatted message to Discord.
+
+---
+
+## Custom HTTP endpoint
+
+Any `POST`-accepting endpoint works. toongate sends:
+
+```
+POST <SAVINGS_WEBHOOK_URL>
+Content-Type: application/json
+
+{ ...payload }
+```
+
+No authentication headers are added — add your own HMAC signature or bearer token at the receiving end.
+
+---
+
+## Reliability
+
+Webhook delivery is best-effort:
+
+- Errors (non-2xx, network failure, timeout) are silently swallowed
+- If the webhook endpoint is slow or unreachable, it does **not** affect the response to your app
+- There is no retry on webhook failure — use `TOON_LOG_SAVINGS=true` + the [Savings API](/docs/observability/savings-api) if you need guaranteed delivery
+
+---
+
+## Environment variable
+
+| Variable | Description |
+|---|---|
+| `SAVINGS_WEBHOOK_URL` | Optional. Full URL to POST savings events to after each request. Leave unset to disable. |

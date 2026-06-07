@@ -17,7 +17,9 @@ toongate is designed to **never add new failure modes** to your LLM pipeline. An
 | TOON encode error | Original payload sent; error logged internally |
 | TOON decode error in response | Response passed through unchanged |
 | Upstream timeout (`UPSTREAM_TIMEOUT_MS`) | Returns `504 Gateway Timeout` to client |
+| Upstream returns 429 or 503 | Retried once after `retry-after` delay (max 10 s) |
 | D1 write fails | Swallowed silently — response is never blocked |
+| Webhook delivery fails | Swallowed silently — response is never blocked |
 | `TOON_DRY_RUN=true` | Compression skipped; original payload sent |
 | `TOON_LOG_SAVINGS=false` | D1 write skipped entirely |
 
@@ -40,6 +42,26 @@ When a timeout occurs, toongate returns:
 with HTTP status `504`.
 
 Increase this value if you're making requests to large models with long outputs. For streaming requests, the timeout applies to the time until the first chunk is received — not the full stream duration.
+
+---
+
+## Retry on 429 / 503
+
+When the upstream LLM provider returns a `429 Too Many Requests` or `503 Service Unavailable`, toongate automatically retries the request **once**:
+
+1. Read the `retry-after` response header (seconds). Default to 1 s if the header is absent.
+2. Cap the delay at 10 s to avoid hanging Workers for too long.
+3. Replay the identical request after the delay.
+
+If the retry also fails, the upstream error is returned to your app unchanged.
+
+```
+request → 429 upstream → wait retry-after (max 10 s) → retry → response
+```
+
+<Note>
+  The retry consumes additional CPU time within the same Worker invocation. Cloudflare Workers on the free plan have a 10 ms CPU limit per request — if your payloads are large and the retry delay pushes you close to the limit, consider upgrading to the paid plan or increasing `UPSTREAM_TIMEOUT_MS` to account for the extra round-trip.
+</Note>
 
 ---
 
