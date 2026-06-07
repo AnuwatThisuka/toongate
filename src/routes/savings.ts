@@ -13,6 +13,10 @@ function escHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function escPromLabel(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+}
+
 app.use("*", adminAuth);
 
 // GET /savings/summary — aggregate totals grouped by model
@@ -416,19 +420,19 @@ app.get("/metrics", async (c) => {
   lines.push("# HELP toongate_requests_total Total number of requests processed by toongate");
   lines.push("# TYPE toongate_requests_total counter");
   for (const r of rows.results ?? []) {
-    lines.push(`toongate_requests_total{model="${r.model}",endpoint="${r.endpoint}"} ${r.requests}`);
+    lines.push(`toongate_requests_total{model="${escPromLabel(r.model)}",endpoint="${escPromLabel(r.endpoint)}"} ${r.requests}`);
   }
 
   lines.push("# HELP toongate_tokens_saved_total Total tokens saved by TOON compression");
   lines.push("# TYPE toongate_tokens_saved_total counter");
   for (const r of rows.results ?? []) {
-    lines.push(`toongate_tokens_saved_total{model="${r.model}",endpoint="${r.endpoint}"} ${r.tokens_saved}`);
+    lines.push(`toongate_tokens_saved_total{model="${escPromLabel(r.model)}",endpoint="${escPromLabel(r.endpoint)}"} ${r.tokens_saved}`);
   }
 
   lines.push("# HELP toongate_usd_saved_total Estimated USD saved by TOON compression");
   lines.push("# TYPE toongate_usd_saved_total counter");
   for (const r of rows.results ?? []) {
-    lines.push(`toongate_usd_saved_total{model="${r.model}",endpoint="${r.endpoint}"} ${r.usd_saved}`);
+    lines.push(`toongate_usd_saved_total{model="${escPromLabel(r.model)}",endpoint="${escPromLabel(r.endpoint)}"} ${r.usd_saved}`);
   }
 
   lines.push("# HELP toongate_requests_compressed_total Total number of requests where compression was applied");

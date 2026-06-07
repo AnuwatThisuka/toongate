@@ -66,13 +66,18 @@ async function proxy(c: Context<{ Bindings: Env }>): Promise<Response> {
       secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
       sessionToken: env.AWS_SESSION_TOKEN,
     });
-    return fetchWithRetry(url, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...sigHeaders },
-      body: rawBody,
-    }, getTimeout(env))
-      .then((r) => new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } }))
-      .catch(() => c.json({ error: "upstream error" }, 502));
+    try {
+      const r = await fetchWithRetry(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...sigHeaders },
+        body: rawBody,
+      }, getTimeout(env));
+      recordOutcome(r.ok);
+      return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+    } catch {
+      recordOutcome(false);
+      return c.json({ error: "upstream error" }, 502);
+    }
   }
 
   const excludeFields = parseExcludeFields(env.TOON_EXCLUDE_FIELDS);
