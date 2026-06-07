@@ -85,6 +85,7 @@
         "docs/observability/savings-log",
         "docs/observability/debug-headers",
         "docs/observability/savings-api",
+        "docs/observability/webhook",
         "docs/observability/prometheus"
       ]
     },

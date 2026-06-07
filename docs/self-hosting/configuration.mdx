@@ -54,6 +54,7 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 |---|---|
 | `ADMIN_KEY` | Protects all `/savings/*` routes. If not set, those routes return `404`. Set to a random 32+ char string. |
 | `PROXY_AUTH_KEY` | **Required for production.** When set, all proxy routes (`/v1/*`, `/azure/v1/*`, `/gemini/v1/*`) require `Authorization: Bearer <value>`. When unset, all proxy routes return `401`. Set to a random 32+ char string. |
+| `SAVINGS_WEBHOOK_URL` | Optional. POST savings event as JSON to this URL after each request. Compatible with Slack incoming webhooks, Discord webhooks, and any HTTP endpoint. See [Savings Webhook](/docs/observability/webhook). |
 
 ---
 
@@ -170,4 +171,7 @@ ADMIN_KEY=change-me-to-a-random-32-char-string
 
 # Reliability
 UPSTREAM_TIMEOUT_MS=30000
+
+# Webhook — optional, POST savings event after each request
+# SAVINGS_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
