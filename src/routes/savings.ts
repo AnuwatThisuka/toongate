@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { adminAuth } from "../middleware/admin-auth";
+import { circuitStats } from "../lib/circuit-breaker";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -372,6 +373,82 @@ app.get("/savings/dashboard", async (c) => {
 
   return new Response(html, {
     headers: { "content-type": "text/html;charset=utf-8" },
+  });
+});
+
+interface MetricsRow {
+  model: string;
+  endpoint: string;
+  requests: number;
+  tokens_saved: number;
+  usd_saved: number;
+}
+
+// GET /metrics — Prometheus text format, ADMIN_KEY protected
+app.get("/metrics", async (c) => {
+  const db = c.env.DB;
+  if (!db) return c.text("# DB binding not configured\n", 503);
+
+  const rows = await db
+    .prepare(
+      `SELECT model, endpoint,
+              COUNT(*)                  AS requests,
+              SUM(tokens_saved)         AS tokens_saved,
+              ROUND(SUM(usd_saved), 6)  AS usd_saved
+       FROM savings
+       GROUP BY model, endpoint
+       ORDER BY tokens_saved DESC`,
+    )
+    .all<MetricsRow>();
+
+  const overall = await db
+    .prepare(
+      `SELECT COUNT(*) AS requests,
+              SUM(tokens_saved) AS tokens_saved,
+              COUNT(CASE WHEN tokens_saved > 0 THEN 1 END) AS compressed_requests
+       FROM savings`,
+    )
+    .first<{ requests: number; tokens_saved: number; compressed_requests: number }>();
+
+  const cb = circuitStats();
+  const lines: string[] = [];
+
+  lines.push("# HELP toongate_requests_total Total number of requests processed by toongate");
+  lines.push("# TYPE toongate_requests_total counter");
+  for (const r of rows.results ?? []) {
+    lines.push(`toongate_requests_total{model="${r.model}",endpoint="${r.endpoint}"} ${r.requests}`);
+  }
+
+  lines.push("# HELP toongate_tokens_saved_total Total tokens saved by TOON compression");
+  lines.push("# TYPE toongate_tokens_saved_total counter");
+  for (const r of rows.results ?? []) {
+    lines.push(`toongate_tokens_saved_total{model="${r.model}",endpoint="${r.endpoint}"} ${r.tokens_saved}`);
+  }
+
+  lines.push("# HELP toongate_usd_saved_total Estimated USD saved by TOON compression");
+  lines.push("# TYPE toongate_usd_saved_total counter");
+  for (const r of rows.results ?? []) {
+    lines.push(`toongate_usd_saved_total{model="${r.model}",endpoint="${r.endpoint}"} ${r.usd_saved}`);
+  }
+
+  lines.push("# HELP toongate_requests_compressed_total Total number of requests where compression was applied");
+  lines.push("# TYPE toongate_requests_compressed_total counter");
+  lines.push(`toongate_requests_compressed_total ${overall?.compressed_requests ?? 0}`);
+
+  lines.push("# HELP toongate_requests_all_total Total requests across all models and endpoints");
+  lines.push("# TYPE toongate_requests_all_total counter");
+  lines.push(`toongate_requests_all_total ${overall?.requests ?? 0}`);
+
+  lines.push("# HELP toongate_circuit_breaker_tripped Whether the circuit breaker is currently open (1=open 0=closed)");
+  lines.push("# TYPE toongate_circuit_breaker_tripped gauge");
+  lines.push(`toongate_circuit_breaker_tripped ${cb.tripped ? 1 : 0}`);
+
+  lines.push("# HELP toongate_circuit_breaker_errors_in_window Error count in the current sliding window");
+  lines.push("# TYPE toongate_circuit_breaker_errors_in_window gauge");
+  lines.push(`toongate_circuit_breaker_errors_in_window ${cb.errors}`);
+
+  return new Response(lines.join("\n") + "\n", {
+    headers: { "content-type": "text/plain; version=0.0.4; charset=utf-8" },
   });
 });
 

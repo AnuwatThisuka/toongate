@@ -1,5 +1,6 @@
 import { scoreEligibility } from "./eligibility";
 import { encodeToToon, estimateTokens } from "./encoder";
+import { applyExcludeToArray } from "./exclude-fields";
 
 export interface CompressResult {
   body: Record<string, unknown>;
@@ -15,6 +16,7 @@ export function compressRequestBody(
   body: Record<string, unknown>,
   originalText: string,
   threshold: number,
+  excludeFields?: Set<string>,
 ): CompressResult {
   const tokensBefore = estimateTokens(originalText);
   const messages = body.messages;
@@ -40,7 +42,11 @@ export function compressRequestBody(
     if (score > maxScore) maxScore = score;
     if (score >= threshold) {
       anyModified = true;
-      return { ...m, content: encodeToToon(m.content) };
+      const toEncode =
+        excludeFields?.size && Array.isArray(m.content)
+          ? applyExcludeToArray(m.content as unknown[], excludeFields)
+          : m.content;
+      return { ...m, content: encodeToToon(toEncode) };
     }
     return m;
   });

@@ -1,5 +1,4 @@
 import { Hono, type Context } from "hono";
-import { applyCavemanMode, isCavemanMode } from "../lib/caveman";
 import { deepCompressBody } from "../lib/deep-compress";
 import { decodeFromToon } from "../lib/decoder";
 import { applyDebugHeaders } from "../lib/headers";
@@ -7,37 +6,34 @@ import { estimateTokens } from "../lib/encoder";
 import { calcUsdSaved } from "../lib/pricing";
 import { writeSavings } from "../lib/savings";
 import { pushWebhook } from "../lib/webhook";
-import { createSseDecodeStream } from "../lib/sse";
 import { fetchWithRetry } from "../lib/retry";
+import { createSseDecodeStream } from "../lib/sse";
 import { resolveThreshold } from "../lib/threshold";
 import { parseExcludeFields } from "../lib/exclude-fields";
 import { isCircuitOpen, recordOutcome } from "../lib/circuit-breaker";
 import { getAdaptiveThreshold } from "../lib/adaptive-threshold";
 
-const openai = new Hono<{ Bindings: Env }>();
+const vertex = new Hono<{ Bindings: Env }>();
 
-function upstreamPath(path: string): string {
-  return path.replace(/^\/v1/, "");
+const DEFAULT_LOCATION = "us-central1";
+
+function buildUpstreamUrl(endpoint: string, env: Env): string {
+  const project = env.VERTEX_PROJECT;
+  const location = env.VERTEX_LOCATION || DEFAULT_LOCATION;
+  const base = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/endpoints/openapi`;
+  // Strip /vertex prefix → /v1/chat/completions or /v1/embeddings
+  const path = endpoint.replace(/^\/vertex/, "");
+  return base + path;
 }
 
 function buildUpstreamHeaders(c: Context<{ Bindings: Env }>): Headers {
   const headers = new Headers(c.req.raw.headers);
-  headers.set("Authorization", `Bearer ${c.env.OPENAI_API_KEY}`);
+  headers.delete("authorization");
+  headers.set("Authorization", `Bearer ${c.env.VERTEX_ACCESS_TOKEN}`);
   headers.delete("content-length");
-  // Strip toongate-internal headers — never forward to upstream
   headers.delete("x-toongate-admin-key");
   headers.delete("x-toongate-mode");
   headers.delete("x-compression-level");
-
-  if (c.env.CF_AIG_TOKEN) {
-    const tok = c.env.CF_AIG_TOKEN.startsWith("Bearer ")
-      ? c.env.CF_AIG_TOKEN
-      : `Bearer ${c.env.CF_AIG_TOKEN}`;
-    headers.set("cf-aig-authorization", tok);
-  }
-  for (const [k, v] of c.req.raw.headers.entries()) {
-    if (k.startsWith("cf-aig-")) headers.set(k, v);
-  }
   return headers;
 }
 
@@ -51,6 +47,11 @@ async function proxy(
   endpoint: string,
 ): Promise<Response> {
   const env = c.env;
+
+  if (!env.VERTEX_PROJECT || !env.VERTEX_ACCESS_TOKEN) {
+    return c.json({ error: "Vertex AI is not configured (VERTEX_PROJECT and VERTEX_ACCESS_TOKEN required)" }, 503);
+  }
+
   const start = Date.now();
   const bodyText = await c.req.text();
 
@@ -63,43 +64,28 @@ async function proxy(
 
   const isStreaming = body.stream === true;
   const model = typeof body.model === "string" ? body.model : "unknown";
-  const originalTokensBefore = estimateTokens(bodyText);
 
   if (isCircuitOpen()) {
     return fetchUpstream(c, bodyText, endpoint, start);
   }
 
+  const excludeFields = parseExcludeFields(env.TOON_EXCLUDE_FIELDS);
   const adaptiveBase = env.TOON_THRESHOLD_AUTO === "true" && env.DB
     ? await getAdaptiveThreshold(env.DB, parseFloat(env.TOON_THRESHOLD ?? "0.6"))
     : undefined;
   const threshold = resolveThreshold(env, endpoint, adaptiveBase);
-  const excludeFields = parseExcludeFields(env.TOON_EXCLUDE_FIELDS);
+  const originalTokensBefore = estimateTokens(bodyText);
 
-  const caveman = isCavemanMode(c.req.raw.headers)
-    ? applyCavemanMode(body)
-    : { body, activated: false };
-  const processedBody = caveman.body;
-
-  const result = deepCompressBody(processedBody, threshold, excludeFields);
+  const result = deepCompressBody(body, threshold, excludeFields);
   const outBodyText = env.TOON_DRY_RUN === "true" ? bodyText : result.bodyText;
-
   const totalTokensSaved = Math.max(0, originalTokensBefore - result.tokensAfter);
 
-  if (env.TOON_DRY_RUN === "true" && result.compressed) {
-    console.log(
-      `[TOON DRY-RUN] model=${model} endpoint=${endpoint}` +
-        ` tokens_before=${originalTokensBefore} tokens_after=${result.tokensAfter}` +
-        ` tokens_saved=${totalTokensSaved}` +
-        ` caveman=${caveman.activated}` +
-        ` usd_saved=${calcUsdSaved(model, totalTokensSaved).toFixed(6)}` +
-        ` — payload NOT compressed`,
-    );
-  }
+  const upstreamUrl = buildUpstreamUrl(endpoint, env);
 
   let response: Response;
   try {
     response = await fetchWithRetry(
-      env.UPSTREAM_URL + upstreamPath(c.req.path),
+      upstreamUrl,
       { method: "POST", headers: buildUpstreamHeaders(c), body: outBodyText },
       getTimeout(env),
     );
@@ -112,8 +98,8 @@ async function proxy(
   }
 
   recordOutcome(response.ok);
-  const elapsed = Date.now() - start;
 
+  const elapsed = Date.now() - start;
   const savingsRow = {
     ts: new Date().toISOString(),
     model,
@@ -124,9 +110,7 @@ async function proxy(
     usd_saved: calcUsdSaved(model, totalTokensSaved),
     elapsed_ms: elapsed,
     deep_compressed: "deepCompressed" in result && result.deepCompressed ? 1 : 0,
-    caveman_mode: caveman.activated ? 1 : 0,
   };
-
   if (env.TOON_LOG_SAVINGS === "true" && env.DB) {
     writeSavings(env.DB, savingsRow, c.executionCtx);
   }
@@ -140,7 +124,6 @@ async function proxy(
     tokensBefore: originalTokensBefore,
     tokensAfter: result.tokensAfter,
     tokensSaved: totalTokensSaved,
-    cavemanMode: caveman.activated,
   });
 
   if (isStreaming && response.body) {
@@ -158,20 +141,13 @@ async function proxy(
         const content = choice?.message?.content;
         if (typeof content === "string") {
           const decoded = decodeFromToon(content);
-          choice.message.content =
-            typeof decoded === "string" ? decoded : content;
+          choice.message.content = typeof decoded === "string" ? decoded : content;
         }
       }
     }
-    return new Response(JSON.stringify(respJson), {
-      status: response.status,
-      headers: respHeaders,
-    });
+    return new Response(JSON.stringify(respJson), { status: response.status, headers: respHeaders });
   } catch {
-    return new Response(respText, {
-      status: response.status,
-      headers: respHeaders,
-    });
+    return new Response(respText, { status: response.status, headers: respHeaders });
   }
 }
 
@@ -182,10 +158,12 @@ async function fetchUpstream(
   start: number,
 ): Promise<Response> {
   const env = c.env;
+  const upstreamUrl = buildUpstreamUrl(endpoint, env);
+
   let response: Response;
   try {
     response = await fetchWithRetry(
-      env.UPSTREAM_URL + upstreamPath(c.req.path),
+      upstreamUrl,
       { method: "POST", headers: buildUpstreamHeaders(c), body },
       getTimeout(env),
     );
@@ -197,31 +175,19 @@ async function fetchUpstream(
   }
 
   if (env.TOON_LOG_SAVINGS === "true" && env.DB) {
-    writeSavings(
-      env.DB,
-      {
-        ts: new Date().toISOString(),
-        model: "unknown",
-        endpoint,
-        tokens_before: 0,
-        tokens_after: 0,
-        tokens_saved: 0,
-        usd_saved: 0,
-        elapsed_ms: Date.now() - start,
-      },
-      c.executionCtx,
-    );
+    writeSavings(env.DB, {
+      ts: new Date().toISOString(), model: "unknown", endpoint,
+      tokens_before: 0, tokens_after: 0, tokens_saved: 0, usd_saved: 0,
+      elapsed_ms: Date.now() - start,
+    }, c.executionCtx);
   }
 
   const respHeaders = new Headers(response.headers);
   respHeaders.delete("content-encoding");
-  return new Response(response.body, {
-    status: response.status,
-    headers: respHeaders,
-  });
+  return new Response(response.body, { status: response.status, headers: respHeaders });
 }
 
-openai.post("/v1/chat/completions", (c) => proxy(c, "/v1/chat/completions"));
-openai.post("/v1/embeddings", (c) => proxy(c, "/v1/embeddings"));
+vertex.post("/vertex/v1/chat/completions", (c) => proxy(c, "/vertex/v1/chat/completions"));
+vertex.post("/vertex/v1/embeddings", (c) => proxy(c, "/vertex/v1/embeddings"));
 
-export default openai;
+export default vertex;

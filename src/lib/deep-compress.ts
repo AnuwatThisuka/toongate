@@ -1,6 +1,7 @@
 import { compressRequestBody, type CompressResult } from "./compress";
 import { scoreEligibility } from "./eligibility";
 import { encodeToToon, estimateTokens } from "./encoder";
+import { applyExcludeToArray } from "./exclude-fields";
 
 export interface DeepCompressResult {
   body: unknown;
@@ -38,6 +39,7 @@ function injectSystemMessage(
 function tryDeepCompressContent(
   content: unknown,
   threshold: number,
+  excludeFields?: Set<string>,
 ): { content: unknown; modified: boolean } {
   // content must be an array of parts (e.g. [{type, text}])
   if (!Array.isArray(content)) return { content, modified: false };
@@ -68,7 +70,11 @@ function tryDeepCompressContent(
     }
 
     try {
-      const encoded = encodeToToon(parsed);
+      const toEncode =
+        excludeFields?.size
+          ? applyExcludeToArray(parsed as unknown[], excludeFields)
+          : parsed;
+      const encoded = encodeToToon(toEncode);
       // Only use if it actually saves characters
       if (encoded.length >= text.length) return part;
       modified = true;
@@ -84,6 +90,7 @@ function tryDeepCompressContent(
 export function deepCompressBody(
   body: unknown,
   threshold: number,
+  excludeFields?: Set<string>,
 ): DeepCompressResult {
   const originalText = JSON.stringify(body);
   const tokensBefore = estimateTokens(originalText);
@@ -95,6 +102,7 @@ export function deepCompressBody(
     bodyRecord,
     originalText,
     threshold,
+    excludeFields,
   );
 
   if (topLevel.compressed) {
@@ -130,7 +138,7 @@ export function deepCompressBody(
 
   const processedMessages = messages.map((msg: unknown) => {
     const m = msg as Record<string, unknown>;
-    const { content, modified } = tryDeepCompressContent(m.content, threshold);
+    const { content, modified } = tryDeepCompressContent(m.content, threshold, excludeFields);
     if (modified) {
       anyDeepModified = true;
       // Update maxScore based on what was found

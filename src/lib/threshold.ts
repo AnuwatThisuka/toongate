@@ -12,9 +12,10 @@ const ROUTE_KEYS: Record<string, StringEnvKey> = {
   "/gemini/v1/embeddings": "TOON_THRESHOLD_EMBEDDINGS",
 };
 
-export function resolveThreshold(env: Env, endpoint: string): number {
+export function resolveThreshold(env: Env, endpoint: string, adaptiveBase?: number): number {
   const key = ROUTE_KEYS[endpoint];
   const raw = key ? env[key] : undefined;
   if (raw && raw !== "") return parseFloat(raw);
+  if (adaptiveBase !== undefined) return adaptiveBase;
   return parseFloat(env.TOON_THRESHOLD);
 }
