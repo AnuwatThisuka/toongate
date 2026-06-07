@@ -25,6 +25,27 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 | `GEMINI_API_KEY` | `/gemini/v1/*` | Injected as `Authorization: Bearer` on Gemini routes. Required to enable Gemini (unless using Vertex AI via `GEMINI_UPSTREAM_URL`). |
 | `GEMINI_UPSTREAM_URL` | `/gemini/v1/*` | Override Gemini upstream URL. Default: `https://generativelanguage.googleapis.com/v1beta/openai`. Use for Vertex AI. |
 
+### AWS Bedrock
+
+| Variable | Default | Description |
+|---|---|---|
+| `AWS_ACCESS_KEY_ID` | — | Required to enable Bedrock routes (`/bedrock/v1/*`). |
+| `AWS_SECRET_ACCESS_KEY` | — | Required to enable Bedrock routes. |
+| `AWS_REGION` | `us-east-1` | AWS region where Bedrock is enabled. |
+| `AWS_SESSION_TOKEN` | — | Optional. For STS temporary credentials. |
+
+See [AWS Bedrock](/docs/gateways/bedrock) for IAM setup and model IDs.
+
+### Vertex AI
+
+| Variable | Default | Description |
+|---|---|---|
+| `VERTEX_PROJECT` | — | Required to enable Vertex AI routes (`/vertex/v1/*`). GCP project ID. |
+| `VERTEX_LOCATION` | `us-central1` | Vertex AI region. |
+| `VERTEX_ACCESS_TOKEN` | — | Required. Short-lived OAuth2 bearer token. Rotate before expiry (~60 min). |
+
+See [Vertex AI](/docs/gateways/vertex-ai) for token generation and rotation guidance.
+
 ### Gateway auth
 
 | Variable | Example | Description |
@@ -39,6 +60,8 @@ Set secrets with `wrangler secret put <NAME>` in production. Non-sensitive value
 | `TOON_THRESHOLD_CHAT` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for chat completions across all providers (`/v1/chat/completions`, `/azure/v1/chat/completions`, `/gemini/v1/chat/completions`). |
 | `TOON_THRESHOLD_EMBEDDINGS` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for embeddings across all providers (`/v1/embeddings`, `/azure/v1/embeddings`, `/gemini/v1/embeddings`). |
 | `TOON_THRESHOLD_MESSAGES` | _(inherits `TOON_THRESHOLD`)_ | Per-route override for Anthropic `/v1/messages`. |
+| `TOON_THRESHOLD_AUTO` | `false` | When `"true"`, auto-tunes the threshold from savings history. Route-specific overrides still win. See [Adaptive Threshold](/docs/compression/adaptive-threshold). |
+| `TOON_EXCLUDE_FIELDS` | — | Comma-separated field names to exclude from TOON encoding, e.g. `"id,trace_id"`. See [Per-Field Exclusion](/docs/compression/per-field-exclusion). |
 | `TOON_DRY_RUN` | `false` | When `true`, estimates savings but sends original payload. Great for testing before enabling compression on production traffic. |
 | `TOON_LOG_SAVINGS` | `true` | Write per-request savings rows to D1. Set `false` to skip D1 writes entirely. |
 
@@ -162,6 +185,18 @@ GEMINI_API_KEY=AIza...
 TOON_THRESHOLD=0.6
 TOON_DRY_RUN=false
 TOON_LOG_SAVINGS=true
+# TOON_THRESHOLD_AUTO=true          # auto-tune from savings history
+# TOON_EXCLUDE_FIELDS=id,trace_id   # skip these fields during encoding
+
+# AWS Bedrock  (/bedrock/v1/*)
+# AWS_ACCESS_KEY_ID=AKIA...
+# AWS_SECRET_ACCESS_KEY=...
+# AWS_REGION=us-east-1
+
+# Vertex AI  (/vertex/v1/*)
+# VERTEX_PROJECT=my-gcp-project
+# VERTEX_LOCATION=us-central1
+# VERTEX_ACCESS_TOKEN=ya29...
 
 # Proxy auth — required for production, protects all proxy routes
 PROXY_AUTH_KEY=change-me-to-a-random-32-char-string

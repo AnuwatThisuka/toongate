@@ -1,83 +1,117 @@
 ---
 title: Prometheus
-description: Exporting toongate metrics to Prometheus and Grafana.
+description: Scrape toongate metrics natively with Prometheus or Grafana.
 ---
 
-## Overview
+## Native /metrics endpoint
 
-toongate does not currently ship a native Prometheus `/metrics` endpoint. However, you can build a Prometheus exporter on top of the [Savings API](/docs/observability/savings-api) using a simple scrape adapter.
+toongate exposes a Prometheus-compatible `/metrics` endpoint protected by `ADMIN_KEY`:
+
+```bash
+curl https://toongate.workers.dev/metrics \
+  -H "X-Toongate-Admin-Key: <ADMIN_KEY>"
+```
+
+Example response:
+
+```
+# HELP toongate_requests_total Total proxy requests processed
+# TYPE toongate_requests_total counter
+toongate_requests_total 4821
+
+# HELP toongate_tokens_saved_total Total input tokens saved by compression
+# TYPE toongate_tokens_saved_total counter
+toongate_tokens_saved_total 310420
+
+# HELP toongate_usd_saved_total Estimated USD saved by compression
+# TYPE toongate_usd_saved_total gauge
+toongate_usd_saved_total 4.821
+
+# HELP toongate_compressed_requests_total Requests where TOON compression was applied
+# TYPE toongate_compressed_requests_total counter
+toongate_compressed_requests_total 3105
+
+# HELP circuit_breaker_tripped Whether the circuit breaker is currently open (1=open, 0=closed)
+# TYPE circuit_breaker_tripped gauge
+circuit_breaker_tripped 0
+
+# HELP circuit_breaker_errors_in_window Number of errors in the current circuit breaker window (last 20 requests)
+# TYPE circuit_breaker_errors_in_window gauge
+circuit_breaker_errors_in_window 0
+```
 
 ---
 
-## Option 1 — Scrape adapter Worker
+## Available metrics
 
-Deploy a small Cloudflare Worker (or any HTTP service) that queries the toongate savings API and converts the response to Prometheus text format:
+| Metric | Type | Description |
+|---|---|---|
+| `toongate_requests_total` | counter | Total proxy requests processed (all routes) |
+| `toongate_tokens_saved_total` | counter | Cumulative input tokens saved by TOON compression |
+| `toongate_usd_saved_total` | gauge | Estimated USD saved (recalculated from savings log) |
+| `toongate_compressed_requests_total` | counter | Requests where compression was actually applied |
+| `circuit_breaker_tripped` | gauge | `1` if circuit breaker is currently open, `0` if closed |
+| `circuit_breaker_errors_in_window` | gauge | Error count in the current 20-request sliding window |
+
+Aggregate metrics (`requests_total`, `tokens_saved_total`, `usd_saved_total`) are computed from the D1 savings log. Circuit breaker metrics reflect the live in-memory state of the running isolate.
+
+---
+
+## Prometheus scrape config
+
+Because Prometheus's native `authorization` block sends `Authorization: Bearer` but `/metrics` requires `X-Toongate-Admin-Key`, use a lightweight scrape adapter Worker:
 
 ```typescript
-// scraper.ts
+// scrape-adapter.ts — deploy as a separate Cloudflare Worker
 export default {
-  async fetch(req: Request, env: Env) {
-    const summary = await fetch("https://toongate.workers.dev/savings/summary", {
+  async fetch(req: Request, env: { ADMIN_KEY: string; TOONGATE_URL: string }) {
+    const resp = await fetch(`${env.TOONGATE_URL}/metrics`, {
       headers: { "X-Toongate-Admin-Key": env.ADMIN_KEY },
-    }).then((r) => r.json() as any);
-
-    const lines = [
-      "# HELP toongate_tokens_saved_total Total tokens saved",
-      "# TYPE toongate_tokens_saved_total counter",
-      `toongate_tokens_saved_total ${summary.total_tokens_saved}`,
-      "",
-      "# HELP toongate_usd_saved_total Estimated USD saved",
-      "# TYPE toongate_usd_saved_total counter",
-      `toongate_usd_saved_total ${summary.total_usd_saved}`,
-      "",
-      "# HELP toongate_requests_total Total requests logged",
-      "# TYPE toongate_requests_total counter",
-      `toongate_requests_total ${summary.total_requests}`,
-      "",
-      "# HELP toongate_compression_rate Fraction of requests compressed",
-      "# TYPE toongate_compression_rate gauge",
-      `toongate_compression_rate ${summary.compression_rate}`,
-    ];
-
-    return new Response(lines.join("\n") + "\n", {
+    });
+    return new Response(resp.body, {
       headers: { "Content-Type": "text/plain; version=0.0.4" },
     });
   },
 };
 ```
 
-Point your Prometheus `scrape_configs` at the scraper URL:
+Then point Prometheus at the adapter:
 
 ```yaml
 scrape_configs:
   - job_name: toongate
-    static_configs:
-      - targets: ["scraper.yourworker.workers.dev"]
     scrape_interval: 60s
+    static_configs:
+      - targets: ["scrape-adapter.yourworker.workers.dev"]
+    scheme: https
 ```
 
 ---
 
-## Option 2 — Grafana Cloud with D1 plugin
+## Grafana
 
-If you use Grafana Cloud, you can connect directly to Cloudflare D1 via the SQLite plugin or query the REST API via the Infinity data source plugin.
+1. Add a Prometheus data source pointing at your Prometheus instance (or scrape adapter).
+2. Use these PromQL queries:
 
-**Infinity data source example:**
+```promql
+# Compression rate
+toongate_compressed_requests_total / toongate_requests_total
+
+# Token savings rate over time
+rate(toongate_tokens_saved_total[5m])
+
+# Circuit breaker health
+circuit_breaker_tripped
+```
+
+---
+
+## Grafana Cloud with Infinity data source
+
+If you prefer to query toongate directly without Prometheus:
 
 1. Install the [Infinity plugin](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/)
 2. Add a new Infinity data source
 3. Create a JSON query pointing at `https://toongate.workers.dev/savings/summary` with the `X-Toongate-Admin-Key` header
 
----
-
-## Available metrics (via Savings API)
-
-| Metric | Source |
-|---|---|
-| Total tokens saved | `GET /savings/summary` → `total_tokens_saved` |
-| Total USD saved | `GET /savings/summary` → `total_usd_saved` |
-| Total requests | `GET /savings/summary` → `total_requests` |
-| Compression rate | `GET /savings/summary` → `compression_rate` |
-| Per-request data | `GET /savings/history` — paginate for time-series |
-
-For per-request granularity in Prometheus, poll `/savings/history` and emit individual counter increments. Set your scrape interval to match your request rate.
+For live circuit breaker state, add a second panel querying `/metrics` with text/plain parsing.
