@@ -2,6 +2,9 @@
   "name": "toongate",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "toongate": "./scripts/toongate-init.mjs"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
