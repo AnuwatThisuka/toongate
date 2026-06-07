@@ -6,6 +6,7 @@ import { applyDebugHeaders } from "../lib/headers";
 import { estimateTokens } from "../lib/encoder";
 import { calcUsdSaved } from "../lib/pricing";
 import { writeSavings } from "../lib/savings";
+import { pushWebhook } from "../lib/webhook";
 import { createSseDecodeStream } from "../lib/sse";
 import { resolveThreshold } from "../lib/threshold";
 
@@ -117,23 +118,24 @@ async function proxy(
 
   const elapsed = Date.now() - start;
 
+  const savingsRow = {
+    ts: new Date().toISOString(),
+    model,
+    endpoint,
+    tokens_before: originalTokensBefore,
+    tokens_after: result.tokensAfter,
+    tokens_saved: totalTokensSaved,
+    usd_saved: calcUsdSaved(model, totalTokensSaved),
+    elapsed_ms: elapsed,
+    deep_compressed: "deepCompressed" in result && result.deepCompressed ? 1 : 0,
+    caveman_mode: caveman.activated ? 1 : 0,
+  };
+
   if (env.TOON_LOG_SAVINGS === "true" && env.DB) {
-    writeSavings(
-      env.DB,
-      {
-        ts: new Date().toISOString(),
-        model,
-        endpoint,
-        tokens_before: originalTokensBefore,
-        tokens_after: result.tokensAfter,
-        tokens_saved: totalTokensSaved,
-        usd_saved: calcUsdSaved(model, totalTokensSaved),
-        elapsed_ms: elapsed,
-        deep_compressed: "deepCompressed" in result && result.deepCompressed ? 1 : 0,
-        caveman_mode: caveman.activated ? 1 : 0,
-      },
-      c.executionCtx,
-    );
+    writeSavings(env.DB, savingsRow, c.executionCtx);
+  }
+  if (env.SAVINGS_WEBHOOK_URL) {
+    pushWebhook(env.SAVINGS_WEBHOOK_URL, savingsRow, c.executionCtx);
   }
 
   const respHeaders = new Headers(response.headers);
