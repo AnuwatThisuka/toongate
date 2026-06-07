@@ -8,6 +8,7 @@ import { calcUsdSaved } from "../lib/pricing";
 import { writeSavings } from "../lib/savings";
 import { pushWebhook } from "../lib/webhook";
 import { createSseDecodeStream } from "../lib/sse";
+import { fetchWithRetry } from "../lib/retry";
 import { resolveThreshold } from "../lib/threshold";
 
 const azure = new Hono<{ Bindings: Env }>();
@@ -104,27 +105,20 @@ async function proxy(
   }
 
   const upstreamUrl = buildUpstreamUrl(endpoint, model, env);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), getTimeout(env));
 
   let response: Response;
   try {
-    response = await fetch(
-      new Request(upstreamUrl, {
-        method: "POST",
-        headers: buildUpstreamHeaders(c),
-        body: outBodyText,
-        signal: controller.signal,
-      }),
+    response = await fetchWithRetry(
+      upstreamUrl,
+      { method: "POST", headers: buildUpstreamHeaders(c), body: outBodyText },
+      getTimeout(env),
     );
   } catch (err) {
-    clearTimeout(timer);
     if (err instanceof Error && err.name === "AbortError") {
       return c.json({ error: "upstream timeout" }, 504);
     }
     return c.json({ error: "upstream error" }, 502);
   }
-  clearTimeout(timer);
 
   const elapsed = Date.now() - start;
 
@@ -193,27 +187,20 @@ async function fetchUpstream(
 ): Promise<Response> {
   const env = c.env;
   const upstreamUrl = buildUpstreamUrl(endpoint, model, env);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), getTimeout(env));
 
   let response: Response;
   try {
-    response = await fetch(
-      new Request(upstreamUrl, {
-        method: "POST",
-        headers: buildUpstreamHeaders(c),
-        body,
-        signal: controller.signal,
-      }),
+    response = await fetchWithRetry(
+      upstreamUrl,
+      { method: "POST", headers: buildUpstreamHeaders(c), body },
+      getTimeout(env),
     );
   } catch (err) {
-    clearTimeout(timer);
     if (err instanceof Error && err.name === "AbortError") {
       return c.json({ error: "upstream timeout" }, 504);
     }
     return c.json({ error: "upstream error" }, 502);
   }
-  clearTimeout(timer);
 
   if (env.TOON_LOG_SAVINGS === "true" && env.DB) {
     writeSavings(
