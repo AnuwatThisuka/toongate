@@ -1238,7 +1238,7 @@
         <div class="stat-lbl">SDK changes required</div>
       </div>
       <div class="stat">
-        <span class="stat-num" data-target="6" data-suffix="+">0+</span>
+        <span class="stat-num" data-target="10" data-suffix="+">0+</span>
         <div class="stat-lbl">gateways supported</div>
       </div>
     </div>
@@ -1452,24 +1452,91 @@
           </tr>
           <tr>
             <td><span class="gw-name">Azure OpenAI</span></td>
-            <td><span class="status-badge status-planned">Planned</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
             <td>
-              <span style="font-size: 12px; color: var(--text3)"
-                >Coming soon</span
-              >
+              <code class="gw-change">AZURE_OPENAI_ENDPOINT=<span>https://{resource}.openai.azure.com</span></code>
             </td>
           </tr>
           <tr>
             <td><span class="gw-name">Google Gemini</span></td>
-            <td><span class="status-badge status-planned">Planned</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
             <td>
-              <span style="font-size: 12px; color: var(--text3)"
-                >Coming soon</span
-              >
+              <code class="gw-change">GEMINI_API_KEY=<span>AIza...</span></code>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">DeepSeek</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
+            <td>
+              <code class="gw-change">DEEPSEEK_API_KEY=<span>sk-...</span></code>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">AWS Bedrock</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
+            <td>
+              <code class="gw-change">AWS_ACCESS_KEY_ID=<span>AKIA...</span></code>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="gw-name">Vertex AI</span></td>
+            <td><span class="status-badge status-live">● Live</span></td>
+            <td>
+              <code class="gw-change">VERTEX_PROJECT=<span>my-gcp-project</span></code>
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- RELIABILITY FEATURES -->
+    <div class="section reveal">
+      <div class="section-label">Reliability</div>
+      <div class="section-title">Production-grade<br />by default.</div>
+      <p class="section-sub">
+        toongate never adds new failure modes to your pipeline. Every feature
+        has a safe fallback — compression errors, upstream failures, and DB
+        writes are all handled gracefully.
+      </p>
+
+      <div class="steps" style="grid-template-columns: repeat(3, 1fr)">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <div class="step-title">Circuit breaker</div>
+          <div class="step-desc">
+            Trips automatically at 50% error rate (last 20 requests). Falls back to raw pass-through and recovers after 30 s.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/>
+            </svg>
+          </div>
+          <div class="step-title">Auto-retry</div>
+          <div class="step-desc">
+            Retries once on 429 / 503, respecting the upstream <code style="font-family:var(--mono);font-size:11px;background:var(--bg2);padding:1px 4px;border-radius:3px">retry-after</code> header. Capped at 10 s.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+          </div>
+          <div class="step-title">Adaptive threshold</div>
+          <div class="step-desc">
+            Set <code style="font-family:var(--mono);font-size:11px;background:var(--bg2);padding:1px 4px;border-radius:3px">TOON_THRESHOLD_AUTO=true</code> to auto-tune compression aggressiveness from your real savings history.
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- SDK SECTION -->
